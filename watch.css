@@ -420,3 +420,18 @@
 .toast.type-success { background: var(--green); }
 .toast.type-warn    { background: var(--saffron); }
 .toast.type-error   { background: var(--red); }
+
+/* ── BLUETOOTH SUPPORT BANNER ───────────────────────────────── */
+.bt-support-banner {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 14px; border-radius: 9px; font-size: 0.82rem;
+  line-height: 1.5;
+}
+.bt-support-banner.warn {
+  background: var(--yellow-pale); border: 1px solid var(--yellow); color: #78350f;
+}
+.bt-support-banner.success {
+  background: #d1fae5; border: 1px solid var(--green-light); color: var(--green);
+}
+.bt-support-banner span:first-child { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+

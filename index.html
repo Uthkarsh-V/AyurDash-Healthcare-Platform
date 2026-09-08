@@ -497,8 +497,9 @@
               <span class="watch-status-dot" id="watchStatusDot"></span>
               <span id="watchStatusText">Not connected</span>
             </div>
-            <p class="muted mt-8">Uses Web Bluetooth to pair with WearOS, Samsung Galaxy Watch, Fitbit, or any BLE-enabled device.</p>
-            <div class="watch-btn-row mt-16">
+            <p class="muted mt-8">Connects to WearOS, Samsung Galaxy Watch, Fitbit, or any BLE smartwatch. Works in all browsers via simulation mode.</p>
+            <div id="btSupportNote" class="mt-8"></div>
+            <div class="watch-btn-row mt-12">
               <button class="btn btn-primary" id="btnPairWatch" onclick="WatchReminder.pairDevice()">🔵 Pair Watch via Bluetooth</button>
               <button class="btn btn-outline" onclick="WatchReminder.simulatePair()">🔌 Simulate Pairing</button>
             </div>

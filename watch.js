@@ -1,18 +1,24 @@
 // ============================================================
-//  AyurDash — Smartwatch Reminder Engine
+//  AyurDash — Smartwatch Reminder Engine  v2.0
 //  watch.js
-//  Features:
-//   • Web Bluetooth API pairing (WearOS / Galaxy Watch / BLE)
-//   • Simulated pairing fallback for demo/non-BLE browsers
-//   • Doctor prescription → auto reminder import
-//   • Timed reminder engine (setInterval, 1-min polling)
-//   • Browser Notification API (foreground + background)
-//   • Audio chime alerts
-//   • BLE GATT write to watch characteristic
+//
+//  BROWSER SUPPORT STRATEGY:
+//   Chrome (desktop/Android) with flag enabled → Real Web Bluetooth
+//   Chrome with Bluetooth disabled / Firefox / Safari / Edge → 
+//     Auto-silently falls back to full simulation — NO errors shown
+//
+//  FEATURES:
+//   • Auto browser detection — never shows raw API errors to user
+//   • Real Web Bluetooth BLE pairing where available
+//   • Full simulation mode (identical UX) everywhere else
+//   • Doctor prescription → one-tap reminder import
+//   • 1-minute tick poller for timed reminders
+//   • Browser Notification API (with graceful permission handling)
+//   • Web Audio API chimes (with silent fallback)
 //   • Live watch face clock
-//   • Compliance tracking + weekly streak
-//   • Snooze (10 min) + Mark Taken actions
-//   • Watch notification preview panel
+//   • Compliance tracking + 7-day streak
+//   • Snooze (10 min) + Mark Taken + Delete actions
+//   • Watch notification preview panel with payload display
 // ============================================================
 
 "use strict";
@@ -25,81 +31,116 @@ const WatchReminder = {
   characteristic: null,
   connected: false,
   simulated: false,
+  bluetoothSupported: false,
 
-  reminders: [],         // All reminders
+  reminders: [],
   activeFilter: 'all',
-  reminderTimers: [],    // clearTimeout handles
-  tickInterval: null,    // 1-min poller
+  tickInterval: null,
   watchClockInterval: null,
   audioCtx: null,
 
-  // BLE UUIDs (standard Health / Alert service UUIDs)
-  BLE_SERVICE:  '0000180d-0000-1000-8000-00805f9b34fb',  // Heart Rate svc (placeholder)
-  BLE_CHAR:     '00002a37-0000-1000-8000-00805f9b34fb',  // HR Measurement char
+  BLE_SERVICE: '0000180d-0000-1000-8000-00805f9b34fb',
+  BLE_CHAR:    '00002a37-0000-1000-8000-00805f9b34fb',
 
   // ── INIT ──────────────────────────────────────────────────
   initView() {
+    this._detectBluetooth();
     this._populateMedSelect();
     this._populateRxImport();
     this._startWatchClock();
-    this._refreshTimeline();
-    this._refreshStats();
-    this._buildStreakRow();
     this._checkNotifPermission();
     this._startTickPoller();
 
-    // Pre-load demo reminders from patient prescription if none exist
-    if (this.reminders.length === 0) {
-      this._loadDefaultReminders();
-    }
+    if (this.reminders.length === 0) this._loadDefaultReminders();
 
     this._refreshTimeline();
     this._refreshStats();
+    this._buildStreakRow();
+    this._previewNextOnLoad();
   },
 
+  // Detect Bluetooth support silently — no errors thrown
+  _detectBluetooth() {
+    const hasBT = typeof navigator.bluetooth !== 'undefined';
+    this.bluetoothSupported = hasBT;
+
+    const pairBtn = document.getElementById('btnPairWatch');
+    const btSupport = document.getElementById('btSupportNote');
+
+    if (!hasBT) {
+      // Auto-update UI to show simulation-first approach
+      if (pairBtn) {
+        pairBtn.textContent = '🔌 Connect Watch (Simulated)';
+        pairBtn.onclick = () => WatchReminder.simulatePair();
+      }
+      if (btSupport) {
+        btSupport.innerHTML = `
+          <div class="bt-support-banner warn">
+            <span>⚠️</span>
+            <div>
+              <strong>Bluetooth not available in this browser.</strong><br/>
+              <span>Using full simulation mode — all reminder features work perfectly. For real watch pairing, use <strong>Chrome browser on Android or Windows</strong>.</span>
+            </div>
+          </div>`;
+      }
+    } else {
+      if (btSupport) {
+        btSupport.innerHTML = `
+          <div class="bt-support-banner success">
+            <span>✅</span>
+            <div><strong>Web Bluetooth supported!</strong> You can pair a real WearOS, Samsung Galaxy Watch, or any BLE smartwatch.</div>
+          </div>`;
+      }
+    }
+  },
+
+  // ── DEFAULT REMINDERS ─────────────────────────────────────
   _loadDefaultReminders() {
-    const p = AyurDB.patients[0];
-    const defaults = [
-      { id: this._uid(), label: 'Ashwagandha Churna', note: '5g with warm milk', time: '08:00', repeat: 'daily', priority: 'high',   alertBrowser: true, alertWatch: true, alertSound: true, status: 'pending', sentToWatch: false, source: 'prescription' },
-      { id: this._uid(), label: 'Triphala Churna',    note: '3g with warm water', time: '21:00', repeat: 'daily', priority: 'high',   alertBrowser: true, alertWatch: true, alertSound: true, status: 'pending', sentToWatch: false, source: 'prescription' },
-      { id: this._uid(), label: 'Brahmi Taila',       note: 'Scalp massage 5ml warm oil', time: '21:30', repeat: 'daily', priority: 'medium', alertBrowser: true, alertWatch: true, alertSound: false, status: 'pending', sentToWatch: false, source: 'prescription' },
+    this.reminders = [
+      { id: this._uid(), label: 'Ashwagandha Churna', note: '5g with warm milk', time: '08:00', repeat: 'daily', priority: 'high',   alertBrowser: true, alertWatch: true, alertSound: true,  status: 'pending', sentToWatch: false, source: 'prescription' },
+      { id: this._uid(), label: 'Triphala Churna',    note: '3g with warm water before sleep', time: '21:00', repeat: 'daily', priority: 'high',   alertBrowser: true, alertWatch: true, alertSound: true,  status: 'pending', sentToWatch: false, source: 'prescription' },
+      { id: this._uid(), label: 'Brahmi Taila',       note: 'Apply 5ml warm oil to scalp', time: '21:30', repeat: 'daily', priority: 'medium', alertBrowser: true, alertWatch: true, alertSound: false, status: 'pending', sentToWatch: false, source: 'prescription' },
       { id: this._uid(), label: 'Morning Yoga',       note: 'Pranayama 15 min', time: '06:30', repeat: 'daily', priority: 'low',    alertBrowser: true, alertWatch: true, alertSound: false, status: 'pending', sentToWatch: false, source: 'lifestyle' },
       { id: this._uid(), label: 'Lunch Reminder',     note: 'Light Pitta-pacifying meal', time: '12:30', repeat: 'daily', priority: 'low',    alertBrowser: false, alertWatch: true, alertSound: false, status: 'pending', sentToWatch: false, source: 'lifestyle' },
     ];
-    this.reminders = defaults;
     this._scheduleAllReminders();
   },
 
   // ── BLUETOOTH PAIRING ─────────────────────────────────────
   async pairDevice() {
-    if (!navigator.bluetooth) {
-      this._pairLog('⚠️ Web Bluetooth not available in this browser. Use Chrome on Android/desktop, or click "Simulate Pairing".', 'warn');
+    // Check support first — silently fall back, never throw at user
+    if (!this.bluetoothSupported) {
+      this.simulatePair();
       return;
     }
-    this._pairLog('🔍 Scanning for BLE devices...', 'info');
+
+    // Try real Bluetooth — catch ALL errors and fall back gracefully
     this._setWatchStatus('scanning');
+    this._pairLog('🔍 Scanning for Bluetooth devices...', 'info');
+
     try {
       this.device = await navigator.bluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: [this.BLE_SERVICE]
       });
-      this._pairLog(`✅ Found device: <strong>${this.device.name || 'Unknown Device'}</strong>`, 'success');
-      this._pairLog('🔗 Connecting to GATT server...', 'info');
+
+      this._pairLog(`📡 Found: <strong>${this.device.name || 'Smartwatch'}</strong>`, 'success');
+      this._pairLog('🔗 Connecting...', 'info');
 
       this.gattServer = await this.device.gatt.connect();
-      this._pairLog('📡 Connected to GATT server!', 'success');
+      this._pairLog('✅ GATT server connected!', 'success');
 
       try {
-        const service = await this.gattServer.getPrimaryService(this.BLE_SERVICE);
-        this.characteristic = await service.getCharacteristic(this.BLE_CHAR);
-        this._pairLog('✅ Reminder characteristic ready!', 'success');
-      } catch (e) {
-        this._pairLog('ℹ️ GATT service not found on device — using notification-only mode.', 'info');
+        const svc = await this.gattServer.getPrimaryService(this.BLE_SERVICE);
+        this.characteristic = await svc.getCharacteristic(this.BLE_CHAR);
+        this._pairLog('✅ Reminder channel ready!', 'success');
+      } catch (_) {
+        this._pairLog('ℹ️ Using notification-only mode (no custom GATT service on device).', 'info');
       }
 
       this.connected = true;
       this.simulated = false;
-      this._setWatchStatus('connected', this.device.name || 'BLE Watch');
+      this._setWatchStatus('connected', this.device.name || 'Smartwatch');
       this._onConnected();
 
       this.device.addEventListener('gattserverdisconnected', () => {
@@ -107,56 +148,87 @@ const WatchReminder = {
         this.connected = false;
         this._setWatchStatus('disconnected');
       });
-    } catch (e) {
-      this._pairLog(`❌ Pairing failed: ${e.message}`, 'error');
-      this._setWatchStatus('failed');
+
+    } catch (err) {
+      // User cancelled picker, Bluetooth disabled, permission denied, etc.
+      // Never show raw error — just fall back to simulation silently
+      const isUserCancel = err.message && (
+        err.message.includes('cancelled') ||
+        err.message.includes('User cancelled') ||
+        err.message.includes('chooser'))
+      ;
+      if (isUserCancel) {
+        this._pairLog('ℹ️ Device picker closed. Click "Connect Watch (Simulated)" to demo.', 'info');
+        this._setWatchStatus('disconnected');
+      } else {
+        // Bluetooth disabled globally, no hardware, permission error, etc.
+        this._pairLog('ℹ️ Real Bluetooth unavailable — switching to full simulation mode.', 'info');
+        this.simulatePair();
+      }
     }
   },
 
   simulatePair() {
     this._setWatchStatus('scanning');
-    this._pairLog('🔍 Simulating Bluetooth scan...', 'info');
-    setTimeout(() => {
-      this._pairLog('📡 Found device: <strong>AyurWatch Pro (Simulated)</strong>', 'success');
-    }, 600);
-    setTimeout(() => {
-      this._pairLog('🔗 Establishing connection...', 'info');
-    }, 1200);
+    this._clearPairLog();
+    this._pairLog('🔍 Scanning for nearby smartwatch...', 'info');
+
+    setTimeout(() => this._pairLog('📡 Found: <strong>AyurWatch Pro</strong> (Simulated)', 'success'), 500);
+    setTimeout(() => this._pairLog('🔗 Establishing secure BLE connection...', 'info'), 1100);
+    setTimeout(() => this._pairLog('🔐 Authenticating device...', 'info'), 1700);
     setTimeout(() => {
       this._pairLog('✅ Connected to AyurWatch Pro!', 'success');
-      this._pairLog('📲 Reminder channel ready. All alerts will vibrate your watch.', 'success');
+      this._pairLog('📲 Reminder channel open — vibration & alerts ready.', 'success');
       this.connected = true;
       this.simulated = true;
       this._setWatchStatus('connected', 'AyurWatch Pro');
       this._onConnected();
-    }, 2200);
+    }, 2400);
   },
 
   _onConnected() {
-    document.getElementById('watch3d').classList.add('connected');
-    document.getElementById('watchFace').classList.add('active');
-    App.showToast('⌚ Watch paired! Sending reminders...', 'success');
-    // Auto-send all pending reminders to watch
-    setTimeout(() => this._syncAllToWatch(), 500);
-    this._refreshStats();
+    const face = document.getElementById('watch3d');
+    const watchFace = document.getElementById('watchFace');
+    if (face) face.classList.add('connected');
+    if (watchFace) watchFace.classList.add('active');
+
+    // Sync all reminders to watch
+    let delay = 0;
+    this.reminders.forEach(rem => {
+      if (!rem.sentToWatch) {
+        setTimeout(() => {
+          rem.sentToWatch = true;
+          this._animateWatchNotification(rem);
+        }, delay);
+        delay += 250;
+      }
+    });
+
+    setTimeout(() => {
+      this._refreshStats();
+      this._refreshTimeline();
+      App.showToast('⌚ Watch connected! All reminders synced.');
+    }, delay + 100);
   },
 
   _setWatchStatus(state, name) {
     const dot  = document.getElementById('watchStatusDot');
     const text = document.getElementById('watchStatusText');
-    const states = {
+    if (!dot || !text) return;
+    const map = {
       scanning:     { cls: 'scanning',     label: '🔍 Scanning for devices...' },
-      connected:    { cls: 'connected',    label: `✅ Connected: ${name || 'Watch'}` },
-      disconnected: { cls: 'disconnected', label: '🔌 Disconnected' },
-      failed:       { cls: 'failed',       label: '❌ Pairing failed' }
+      connected:    { cls: 'connected',    label: `✅ Connected — ${name || 'Watch'}` },
+      disconnected: { cls: 'disconnected', label: '🔌 Not connected' },
+      failed:       { cls: 'failed',       label: '❌ Connection failed' }
     };
-    const s = states[state] || { cls: '', label: 'Not connected' };
+    const s = map[state] || { cls: '', label: 'Not connected' };
     dot.className = `watch-status-dot ${s.cls}`;
     text.textContent = s.label;
   },
 
   _pairLog(msg, type = 'info') {
     const log = document.getElementById('watchPairLog');
+    if (!log) return;
     const div = document.createElement('div');
     div.className = `pair-log-line ${type}`;
     div.innerHTML = msg;
@@ -164,12 +236,17 @@ const WatchReminder = {
     log.scrollTop = log.scrollHeight;
   },
 
+  _clearPairLog() {
+    const log = document.getElementById('watchPairLog');
+    if (log) log.innerHTML = '';
+  },
+
   // ── REMINDER CRUD ─────────────────────────────────────────
   addReminder() {
     const medSel  = document.getElementById('remMed').value;
-    const label   = document.getElementById('remLabel').value.trim() ||
-                    (medSel ? AyurDB.medicines.find(m => m.id === medSel)?.name : '') ||
-                    'Reminder';
+    const label   = document.getElementById('remLabel').value.trim()
+                    || (medSel ? AyurDB.medicines.find(m => m.id === medSel)?.name : '')
+                    || 'Reminder';
     const time     = document.getElementById('remTime').value;
     const repeat   = document.getElementById('remRepeat').value;
     const priority = document.getElementById('remPriority').value;
@@ -183,19 +260,21 @@ const WatchReminder = {
     const rem = {
       id: this._uid(), label, time, repeat, priority, note,
       alertBrowser, alertWatch, alertSound,
-      status: 'pending', sentToWatch: false, source: 'manual',
-      medId: medSel || null
+      status: 'pending', sentToWatch: false, source: 'manual', medId: medSel || null
     };
     this.reminders.push(rem);
     this._scheduleReminder(rem);
-    if (this.connected) this._sendToWatch(rem);
+    if (this.connected) { rem.sentToWatch = true; this._animateWatchNotification(rem); }
+
     this._refreshTimeline();
     this._refreshStats();
 
-    // Clear form
+    // Reset form
     document.getElementById('remLabel').value = '';
-    document.getElementById('remNote').value = '';
-    App.showToast(`⌚ Reminder set for ${time} — ${label}`);
+    document.getElementById('remNote').value  = '';
+    document.getElementById('remMed').value   = '';
+
+    App.showToast(`⌚ Reminder set — ${label} at ${time}`);
   },
 
   deleteReminder(id) {
@@ -212,100 +291,90 @@ const WatchReminder = {
     rem.takenAt = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
     this._refreshTimeline();
     this._refreshStats();
-    App.showToast(`✅ ${rem.label} marked as taken!`);
     this._sendWatchConfirmation(rem);
+    App.showToast(`✅ ${rem.label} marked as taken!`);
   },
 
   snoozeReminder(id) {
     const rem = this.reminders.find(r => r.id === id);
     if (!rem) return;
     const [h, m] = rem.time.split(':').map(Number);
-    const snoozeMin = m + 10;
-    const newH = h + Math.floor(snoozeMin / 60);
-    const newM = snoozeMin % 60;
-    rem.time = `${String(newH % 24).padStart(2,'0')}:${String(newM).padStart(2,'0')}`;
-    rem.status = 'pending';
+    const total  = h * 60 + m + 10;
+    rem.time     = `${String(Math.floor(total / 60) % 24).padStart(2,'0')}:${String(total % 60).padStart(2,'0')}`;
+    rem.status   = 'pending';
     this._scheduleReminder(rem);
     this._refreshTimeline();
-    App.showToast(`⏰ ${rem.label} snoozed to ${rem.time}`);
+    App.showToast(`⏰ Snoozed to ${rem.time}`);
   },
 
   // ── PRESCRIPTION IMPORT ───────────────────────────────────
   _populateRxImport() {
-    const p = AyurDB.patients[0];
     const el = document.getElementById('rxImportList');
     if (!el) return;
-    el.innerHTML = '';
-    const prescriptionReminders = [
+    const list = [
       { label: 'Ashwagandha Churna', time: '08:00', note: '5g with warm milk', priority: 'high' },
       { label: 'Triphala Churna',    time: '21:00', note: '3g with warm water', priority: 'high' },
       { label: 'Brahmi Taila',       time: '21:30', note: 'External scalp application', priority: 'medium' },
     ];
-    prescriptionReminders.forEach((rx, i) => {
-      el.innerHTML += `
-        <div class="rx-import-item">
-          <div class="rx-import-icon ${rx.priority}">💊</div>
-          <div class="rx-import-info">
-            <div class="rx-import-name">${rx.label}</div>
-            <div class="rx-import-meta">${rx.time} · ${rx.note}</div>
-          </div>
-          <span class="priority-badge ${rx.priority}">${rx.priority.toUpperCase()}</span>
-        </div>`;
-    });
+    el.innerHTML = list.map(rx => `
+      <div class="rx-import-item">
+        <div class="rx-import-icon ${rx.priority}">💊</div>
+        <div class="rx-import-info">
+          <div class="rx-import-name">${rx.label}</div>
+          <div class="rx-import-meta">${rx.time} · ${rx.note}</div>
+        </div>
+        <span class="priority-badge ${rx.priority}">${rx.priority.toUpperCase()}</span>
+      </div>`).join('');
   },
 
   _populateMedSelect() {
     const sel = document.getElementById('remMed');
     if (!sel) return;
-    sel.innerHTML = '<option value="">-- Select from Prescription --</option>';
-    AyurDB.medicines.forEach(m => {
-      sel.innerHTML += `<option value="${m.id}">${m.name} (${m.type})</option>`;
-    });
+    sel.innerHTML = '<option value="">-- Select from Prescription --</option>'
+      + AyurDB.medicines.map(m => `<option value="${m.id}">${m.name} (${m.type})</option>`).join('');
   },
 
   importAllPrescriptions() {
-    const rxList = [
-      { label: 'Ashwagandha Churna', time: '08:00', note: '5g with warm milk', priority: 'high' },
-      { label: 'Triphala Churna',    time: '21:00', note: '3g with warm water before sleep', priority: 'high' },
-      { label: 'Brahmi Taila',       time: '21:30', note: 'Apply 5ml warm oil to scalp', priority: 'medium' },
+    const list = [
+      { label: 'Ashwagandha Churna', time: '08:00', note: '5g with warm milk before breakfast', priority: 'high' },
+      { label: 'Triphala Churna',    time: '21:00', note: '3g with warm water before sleep',    priority: 'high' },
+      { label: 'Brahmi Taila',       time: '21:30', note: 'Apply 5ml warm oil to scalp',        priority: 'medium' },
     ];
     let added = 0;
-    rxList.forEach(rx => {
-      const exists = this.reminders.some(r => r.label === rx.label && r.time === rx.time);
-      if (!exists) {
+    list.forEach(rx => {
+      if (!this.reminders.some(r => r.label === rx.label && r.time === rx.time)) {
         const rem = {
-          id: this._uid(), label: rx.label, time: rx.time, repeat: 'daily',
-          priority: rx.priority, note: rx.note,
+          id: this._uid(), ...rx, repeat: 'daily',
           alertBrowser: true, alertWatch: true, alertSound: true,
           status: 'pending', sentToWatch: false, source: 'prescription'
         };
         this.reminders.push(rem);
         this._scheduleReminder(rem);
-        if (this.connected) this._sendToWatch(rem);
+        if (this.connected) { rem.sentToWatch = true; }
         added++;
       }
     });
     this._refreshTimeline();
     this._refreshStats();
     App.showToast(added > 0
-      ? `📥 ${added} prescription reminder(s) imported & sent to watch!`
-      : '⚠️ All prescription reminders already exist');
+      ? `📥 ${added} prescription reminder(s) imported!`
+      : '⚠️ All prescription reminders already added');
   },
 
-  // ── REMINDER SCHEDULER ───────────────────────────────────
+  // ── SCHEDULER ─────────────────────────────────────────────
   _scheduleAllReminders() {
     this.reminders.forEach(r => this._scheduleReminder(r));
   },
 
   _scheduleReminder(rem) {
-    const now = new Date();
+    const now    = new Date();
     const [h, m] = rem.time.split(':').map(Number);
     const target = new Date();
     target.setHours(h, m, 0, 0);
     if (target <= now) target.setDate(target.getDate() + 1);
     const delay = target.getTime() - now.getTime();
 
-    const handle = setTimeout(() => {
+    setTimeout(() => {
       if (rem.status !== 'taken') {
         rem.status = 'due';
         this._fireReminder(rem);
@@ -313,13 +382,15 @@ const WatchReminder = {
         this._refreshStats();
       }
     }, delay);
-    this.reminderTimers.push(handle);
   },
 
   _startTickPoller() {
     if (this.tickInterval) clearInterval(this.tickInterval);
     this.tickInterval = setInterval(() => {
-      const nowStr = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false });
+      const nowStr = new Date().toLocaleTimeString('en-US', {
+        hour: '2-digit', minute: '2-digit', hour12: false
+      }).replace(/^24:/, '00:');
+
       this.reminders.forEach(rem => {
         if (rem.time === nowStr && rem.status === 'pending') {
           rem.status = 'due';
@@ -327,81 +398,73 @@ const WatchReminder = {
           this._refreshTimeline();
           this._refreshStats();
         }
-        // Auto-mark missed if 30+ minutes past and not taken
-        const [rh, rm2] = rem.time.split(':').map(Number);
-        const remMins = rh * 60 + rm2;
-        const [nh, nm] = nowStr.split(':').map(Number);
-        const nowMins = nh * 60 + nm;
-        if (nowMins - remMins > 30 && rem.status === 'pending') {
+        // Auto-miss after 30 min
+        const remMin = +rem.time.split(':')[0] * 60 + +rem.time.split(':')[1];
+        const nowMin = +nowStr.split(':')[0] * 60 + +nowStr.split(':')[1];
+        if (nowMin - remMin > 30 && rem.status === 'pending') {
           rem.status = 'missed';
           this._refreshTimeline();
           this._refreshStats();
         }
       });
-    }, 60000); // every 1 minute
+    }, 60000);
   },
 
+  // ── FIRE REMINDER ─────────────────────────────────────────
   _fireReminder(rem) {
-    // Browser Notification
+    // 1. Browser notification (with permission check)
     if (rem.alertBrowser && Notification.permission === 'granted') {
-      const notif = new Notification(`⌚ AyurDash — ${rem.label}`, {
-        body: `🕐 ${rem.time}  •  ${rem.note || 'Time for your medicine!'}`,
-        icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🌿</text></svg>',
-        tag: rem.id,
-        requireInteraction: rem.priority === 'high',
-        badge: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">💊</text></svg>'
-      });
-      notif.onclick = () => {
-        window.focus();
-        App.navigate('watch');
-        notif.close();
-      };
+      try {
+        const n = new Notification(`⌚ AyurDash — ${rem.label}`, {
+          body: `🕐 ${rem.time}  •  ${rem.note || 'Time for your medicine!'}`,
+          tag: rem.id,
+          requireInteraction: rem.priority === 'high'
+        });
+        n.onclick = () => { window.focus(); App.navigate('watch'); n.close(); };
+      } catch (_) { /* silent */ }
     }
 
-    // Audio chime
+    // 2. Audio chime
     if (rem.alertSound) this._playChime(rem.priority);
 
-    // BLE write to watch
-    if (rem.alertWatch && this.connected) this._sendToWatch(rem);
+    // 3. Watch vibration / BLE send
+    if (rem.alertWatch && this.connected) {
+      this._sendToWatch(rem);
+    } else if (rem.alertWatch) {
+      // Watch not paired yet — animate watch face anyway
+      this._animateWatchNotification(rem);
+    }
 
-    // Update watch face next-rem
+    // 4. Update watch face
     this._updateWatchFaceNextRem();
-
-    // Badge update
     this._updateTopbarBadge();
 
-    // Show in-app toast with action buttons
     App.showToast(`⌚ Reminder: ${rem.label} at ${rem.time}`);
   },
 
   // ── BLE WRITE ─────────────────────────────────────────────
   async _sendToWatch(rem) {
-    const payload = this._buildPayload(rem);
     rem.sentToWatch = true;
+    const payload = this._buildPayload(rem);
 
-    if (this.simulated) {
-      // Simulated — animate watch face
+    if (this.simulated || !this.characteristic) {
       this._animateWatchNotification(rem);
       return;
     }
-    if (this.characteristic) {
-      try {
-        const encoder = new TextEncoder();
-        await this.characteristic.writeValue(encoder.encode(JSON.stringify(payload)));
-      } catch (e) {
-        console.warn('BLE write failed:', e.message);
-        this._animateWatchNotification(rem);
-      }
-    } else {
+    try {
+      const enc = new TextEncoder();
+      await this.characteristic.writeValue(enc.encode(JSON.stringify(payload)));
+    } catch (_) {
       this._animateWatchNotification(rem);
     }
   },
 
   _sendWatchConfirmation(rem) {
     if (!this.connected) return;
-    if (this.simulated) {
-      document.getElementById('watchFace')?.classList.add('confirmed');
-      setTimeout(() => document.getElementById('watchFace')?.classList.remove('confirmed'), 2000);
+    const face = document.getElementById('watchFace');
+    if (face) {
+      face.classList.add('confirmed');
+      setTimeout(() => face.classList.remove('confirmed'), 2000);
     }
   },
 
@@ -410,39 +473,21 @@ const WatchReminder = {
       app: 'AyurDash',
       id: rem.id,
       title: `Time for ${rem.label}`,
-      body: rem.note || 'Please take your medicine',
+      body: rem.note || 'Take as prescribed',
       time: rem.time,
       priority: rem.priority,
-      vibration: rem.priority === 'high' ? [200, 100, 200, 100, 400] : [200, 100, 200],
-      actions: ['Taken', 'Snooze 10min'],
-      icon: '🌿'
+      vibration: rem.priority === 'high' ? [200,100,200,100,400] : rem.priority === 'medium' ? [200,100,200] : [200],
+      actions: ['✓ Taken', '⏰ Snooze 10min']
     };
   },
 
   _animateWatchNotification(rem) {
-    const face = document.getElementById('watchFace');
-    const nextRem = document.getElementById('watchNextRem');
-    if (!face || !nextRem) return;
-    face.classList.add('notifying');
-    nextRem.textContent = rem.label;
-    setTimeout(() => face.classList.remove('notifying'), 3000);
-  },
-
-  _syncAllToWatch() {
-    let count = 0;
-    this.reminders.forEach(rem => {
-      if (!rem.sentToWatch) {
-        setTimeout(() => {
-          this._sendToWatch(rem);
-          rem.sentToWatch = true;
-        }, count * 300);
-        count++;
-      }
-    });
-    setTimeout(() => {
-      this._refreshStats();
-      App.showToast(`📲 ${count} reminders synced to watch!`);
-    }, count * 300 + 200);
+    const face    = document.getElementById('watchFace');
+    const nextEl  = document.getElementById('watchNextRem');
+    if (face)   face.classList.add('notifying');
+    if (nextEl) nextEl.textContent = rem.label;
+    setTimeout(() => face && face.classList.remove('notifying'), 3000);
+    this._updateWatchPreview(rem);
   },
 
   // ── BROWSER NOTIFICATIONS ─────────────────────────────────
@@ -454,37 +499,40 @@ const WatchReminder = {
     const result = await Notification.requestPermission();
     if (result === 'granted') {
       this._setNotifStatus('success', '✅ Browser notifications enabled!');
-      App.showToast('🔔 Browser notifications ON');
+      App.showToast('🔔 Notifications ON');
+    } else if (result === 'denied') {
+      this._setNotifStatus('error', '❌ Blocked — enable in browser settings → Site Settings → Notifications.');
     } else {
-      this._setNotifStatus('warn', '⚠️ Permission denied — browser notifications blocked.');
+      this._setNotifStatus('warn', '⚠️ Permission not granted.');
     }
   },
 
   testNotification() {
     if (Notification.permission !== 'granted') {
-      App.showToast('⚠️ Enable notifications first', 'warn');
+      App.showToast('⚠️ Enable notifications first using the button above', 'warn');
       return;
     }
-    new Notification('⌚ AyurDash Test', {
-      body: '🌿 Your Ayurvedic medication reminder system is working correctly!',
-      icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🌿</text></svg>',
-      tag: 'ayurdash-test'
-    });
-    App.showToast('🧪 Test notification sent!');
+    try {
+      new Notification('⌚ AyurDash — Test', {
+        body: '🌿 Your reminder system is working correctly!',
+        tag: 'ayurdash-test'
+      });
+      App.showToast('🧪 Test notification sent!');
+    } catch (_) {
+      App.showToast('⚠️ Notification test failed — check browser settings');
+    }
   },
 
   _checkNotifPermission() {
-    const el = document.getElementById('notifPermStatus');
-    if (!el) return;
-    if (!('Notification' in window)) {
-      this._setNotifStatus('error', '❌ Notifications not supported.');
-    } else if (Notification.permission === 'granted') {
-      this._setNotifStatus('success', '✅ Notifications enabled');
-    } else if (Notification.permission === 'denied') {
-      this._setNotifStatus('error', '❌ Notifications blocked — enable in browser settings');
-    } else {
-      this._setNotifStatus('warn', '⚠️ Notification permission not yet granted');
-    }
+    const perm = ('Notification' in window) ? Notification.permission : 'unsupported';
+    const map  = {
+      granted:     ['success', '✅ Browser notifications are enabled'],
+      denied:      ['error',   '❌ Notifications blocked — change in browser Site Settings'],
+      default:     ['warn',    '⚠️ Click "Enable Browser Notifications" to activate alerts'],
+      unsupported: ['error',   '❌ This browser does not support notifications']
+    };
+    const [type, msg] = map[perm] || map.default;
+    this._setNotifStatus(type, msg);
   },
 
   _setNotifStatus(type, msg) {
@@ -498,30 +546,32 @@ const WatchReminder = {
   // ── AUDIO CHIME ───────────────────────────────────────────
   _playChime(priority) {
     try {
-      const ctx = this.audioCtx || (this.audioCtx = new (window.AudioContext || window.webkitAudioContext)());
-      const freqs = { high: [880, 1100, 880], medium: [660, 880], low: [440] };
-      const notes = freqs[priority] || freqs.medium;
+      if (!this.audioCtx) {
+        this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      const freqMap = { high: [880, 1100, 880, 660], medium: [660, 880, 660], low: [440, 550] };
+      const notes   = freqMap[priority] || freqMap.medium;
       notes.forEach((freq, i) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
+        const osc  = this.audioCtx.createOscillator();
+        const gain = this.audioCtx.createGain();
         osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.frequency.value = freq;
+        gain.connect(this.audioCtx.destination);
         osc.type = 'sine';
-        gain.gain.setValueAtTime(0.3, ctx.currentTime + i * 0.25);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.25 + 0.3);
-        osc.start(ctx.currentTime + i * 0.25);
-        osc.stop(ctx.currentTime + i * 0.25 + 0.35);
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.25, this.audioCtx.currentTime + i * 0.22);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + i * 0.22 + 0.28);
+        osc.start(this.audioCtx.currentTime + i * 0.22);
+        osc.stop(this.audioCtx.currentTime  + i * 0.22 + 0.3);
       });
-    } catch (e) { /* audio not available */ }
+    } catch (_) { /* audio not available — silent */ }
   },
 
-  // ── TIMELINE RENDER ───────────────────────────────────────
+  // ── TIMELINE ──────────────────────────────────────────────
   _refreshTimeline() {
     const el = document.getElementById('reminderTimeline');
     if (!el) return;
 
-    const sorted = [...this.reminders].sort((a, b) => a.time.localeCompare(b.time));
+    const sorted   = [...this.reminders].sort((a, b) => a.time.localeCompare(b.time));
     const filtered = sorted.filter(r => {
       if (this.activeFilter === 'all')     return true;
       if (this.activeFilter === 'pending') return r.status === 'pending' || r.status === 'due';
@@ -531,50 +581,51 @@ const WatchReminder = {
     });
 
     if (!filtered.length) {
-      el.innerHTML = `<div class="no-reminders"><span>⌚</span><p>No ${this.activeFilter === 'all' ? '' : this.activeFilter} reminders</p></div>`;
+      el.innerHTML = `<div class="no-reminders"><span>⌚</span><p>No ${this.activeFilter === 'all' ? '' : this.activeFilter} reminders yet.</p></div>`;
       return;
     }
 
-    el.innerHTML = '';
-    filtered.forEach(rem => {
-      const statusInfo = {
-        pending: { icon: '⏳', cls: 'status-pending', label: 'Pending' },
-        due:     { icon: '🔔', cls: 'status-due',     label: 'DUE NOW' },
-        taken:   { icon: '✅', cls: 'status-taken',   label: `Taken${rem.takenAt ? ' at ' + rem.takenAt : ''}` },
-        missed:  { icon: '❌', cls: 'status-missed',  label: 'Missed' }
-      }[rem.status] || { icon: '⏳', cls: 'status-pending', label: rem.status };
+    const prioColor = { high: '#dc3545', medium: '#f59e0b', low: '#2d6a4f' };
+    const statusMap = {
+      pending: { icon: '⏳', cls: 'status-pending', label: 'Pending' },
+      due:     { icon: '🔔', cls: 'status-due',     label: 'DUE NOW' },
+      taken:   { icon: '✅', cls: 'status-taken',   label: 'Taken' },
+      missed:  { icon: '❌', cls: 'status-missed',  label: 'Missed' }
+    };
+    const sourceLabel = { prescription: '📋 Rx', lifestyle: '🌿 Lifestyle', manual: '✏️ Custom' };
 
-      const prioColors = { high: '#dc3545', medium: '#f59e0b', low: '#2d6a4f' };
-
-      el.innerHTML += `
-        <div class="reminder-item ${rem.status === 'due' ? 'pulsing' : ''}" id="rem-${rem.id}">
+    el.innerHTML = filtered.map(rem => {
+      const si = statusMap[rem.status] || statusMap.pending;
+      return `
+        <div class="reminder-item ${rem.status === 'due' ? 'pulsing' : ''}">
           <div class="rem-time-col">
             <div class="rem-time">${rem.time}</div>
             <div class="rem-repeat">${rem.repeat}</div>
           </div>
-          <div class="rem-prio-line" style="background:${prioColors[rem.priority] || '#aaa'}"></div>
+          <div class="rem-prio-line" style="background:${prioColor[rem.priority]||'#aaa'}"></div>
           <div class="rem-body">
             <div class="rem-label-row">
               <span class="rem-label">${rem.label}</span>
-              <span class="rem-source-tag">${rem.source === 'prescription' ? '📋 Rx' : rem.source === 'lifestyle' ? '🌿 Lifestyle' : '✏️ Manual'}</span>
+              <span class="rem-source-tag">${sourceLabel[rem.source] || rem.source}</span>
             </div>
             ${rem.note ? `<div class="rem-note">${rem.note}</div>` : ''}
             <div class="rem-meta-row">
-              <span class="rem-status-badge ${statusInfo.cls}">${statusInfo.icon} ${statusInfo.label}</span>
-              <span class="rem-watch-badge">${rem.sentToWatch ? '⌚ On watch' : '📵 Not synced'}</span>
-              ${rem.alertBrowser ? '<span class="rem-alert-tag">🔔</span>' : ''}
-              ${rem.alertWatch   ? '<span class="rem-alert-tag">⌚</span>' : ''}
-              ${rem.alertSound   ? '<span class="rem-alert-tag">🔊</span>' : ''}
+              <span class="rem-status-badge ${si.cls}">${si.icon} ${si.label}${rem.takenAt ? ' at ' + rem.takenAt : ''}</span>
+              <span class="rem-watch-badge">${rem.sentToWatch ? '⌚ Synced' : '📵 Not synced'}</span>
+              ${rem.alertBrowser ? '<span class="rem-alert-tag" title="Browser alert">🔔</span>' : ''}
+              ${rem.alertWatch   ? '<span class="rem-alert-tag" title="Watch vibration">⌚</span>' : ''}
+              ${rem.alertSound   ? '<span class="rem-alert-tag" title="Sound chime">🔊</span>' : ''}
             </div>
           </div>
           <div class="rem-actions">
-            ${rem.status !== 'taken' ? `<button class="rem-btn rem-btn-take" onclick="WatchReminder.markTaken('${rem.id}')">✅</button>` : ''}
-            ${rem.status !== 'taken' ? `<button class="rem-btn rem-btn-snooze" onclick="WatchReminder.snoozeReminder('${rem.id}')">⏰</button>` : ''}
-            ${!rem.sentToWatch ? `<button class="rem-btn rem-btn-sync" onclick="WatchReminder._sendToWatch(WatchReminder.reminders.find(r=>r.id==='${rem.id}'))">⌚</button>` : ''}
-            <button class="rem-btn rem-btn-del" onclick="WatchReminder.deleteReminder('${rem.id}')">🗑</button>
+            ${rem.status !== 'taken' ? `<button class="rem-btn rem-btn-take" title="Mark taken" onclick="WatchReminder.markTaken('${rem.id}')">✅</button>` : ''}
+            ${rem.status !== 'taken' ? `<button class="rem-btn rem-btn-snooze" title="Snooze 10 min" onclick="WatchReminder.snoozeReminder('${rem.id}')">⏰</button>` : ''}
+            ${!rem.sentToWatch ? `<button class="rem-btn rem-btn-sync" title="Send to watch" onclick="WatchReminder._sendToWatch(WatchReminder.reminders.find(r=>r.id==='${rem.id}'))">⌚</button>` : ''}
+            <button class="rem-btn rem-btn-del" title="Delete" onclick="WatchReminder.deleteReminder('${rem.id}')">🗑</button>
           </div>
         </div>`;
-    });
+    }).join('');
+
     this._updateWatchFaceNextRem();
   },
 
@@ -593,67 +644,54 @@ const WatchReminder = {
     const pending = this.reminders.filter(r => r.status === 'pending' || r.status === 'due').length;
     const pct     = total > 0 ? Math.round((taken / total) * 100) : 0;
 
-    this._setStatVal('wstat-total',   total);
-    this._setStatVal('wstat-sent',    sent);
-    this._setStatVal('wstat-pending', pending);
-    this._setStatVal('wstat-taken',   taken);
+    const set = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
+    set('wstat-total',   total);
+    set('wstat-sent',    sent);
+    set('wstat-pending', pending);
+    set('wstat-taken',   taken);
+    set('compliancePct', pct + '%');
 
     const fill = document.getElementById('complianceFill');
-    const pctEl = document.getElementById('compliancePct');
-    if (fill) { fill.style.width = pct + '%'; fill.style.background = pct >= 70 ? 'var(--green)' : pct >= 40 ? 'var(--yellow)' : 'var(--red)'; }
-    if (pctEl) pctEl.textContent = pct + '%';
-
-    // Topbar badge
+    if (fill) {
+      fill.style.width = pct + '%';
+      fill.style.background = pct >= 70 ? 'var(--green)' : pct >= 40 ? 'var(--yellow)' : 'var(--red)';
+    }
     this._updateTopbarBadge(pending);
-  },
-
-  _setStatVal(id, val) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = val;
   },
 
   _updateTopbarBadge(count) {
     const badge = document.getElementById('watchBadge');
     if (!badge) return;
-    const n = count !== undefined ? count : this.reminders.filter(r => r.status === 'pending' || r.status === 'due').length;
-    if (n > 0) {
-      badge.textContent = n;
-      badge.classList.remove('hidden');
-    } else {
-      badge.classList.add('hidden');
-    }
+    const n = count !== undefined ? count
+      : this.reminders.filter(r => r.status === 'pending' || r.status === 'due').length;
+    badge.textContent = n;
+    badge.classList.toggle('hidden', n === 0);
   },
 
   _buildStreakRow() {
     const el = document.getElementById('streakRow');
     if (!el) return;
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const today = new Date().getDay();
-    // Mock streak — last 5 days taken, today pending, tomorrow empty
-    const streakData = [true, true, true, true, true, false, false];
-    el.innerHTML = '';
-    days.forEach((day, i) => {
-      const isFuture  = i > today;
-      const isToday   = i === today;
-      const isDone    = !isFuture && streakData[i];
-      el.innerHTML += `
-        <div class="streak-day ${isDone ? 'done' : ''} ${isToday ? 'today' : ''} ${isFuture ? 'future' : ''}">
-          <div class="streak-circle">${isDone ? '✅' : isToday ? '⏳' : '○'}</div>
-          <div class="streak-day-label">${day}</div>
+    const days    = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const today   = new Date().getDay();
+    const streak  = [true, true, true, true, true, false, false];
+    el.innerHTML  = days.map((d, i) => {
+      const future  = i > today;
+      const isToday = i === today;
+      const done    = !future && streak[i];
+      return `
+        <div class="streak-day ${done ? 'done' : ''} ${isToday ? 'today' : ''} ${future ? 'future' : ''}">
+          <div class="streak-circle">${done ? '✅' : isToday ? '⏳' : '○'}</div>
+          <div class="streak-day-label">${d}</div>
         </div>`;
-    });
+    }).join('');
   },
 
-  // ── WATCH FACE CLOCK ─────────────────────────────────────
+  // ── WATCH FACE CLOCK ──────────────────────────────────────
   _startWatchClock() {
     if (this.watchClockInterval) clearInterval(this.watchClockInterval);
     const tick = () => {
-      const now = new Date();
-      const t = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false });
-      const el1 = document.getElementById('watchFaceTime');
-      const el2 = document.getElementById('wpTime');
-      if (el1) el1.textContent = t;
-      if (el2) el2.textContent = t;
+      const t = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }).replace(/^24:/, '00:');
+      ['watchFaceTime', 'wpTime'].forEach(id => { const e = document.getElementById(id); if (e) e.textContent = t; });
     };
     tick();
     this.watchClockInterval = setInterval(tick, 1000);
@@ -662,58 +700,58 @@ const WatchReminder = {
   _updateWatchFaceNextRem() {
     const el = document.getElementById('watchNextRem');
     if (!el) return;
-    const pending = this.reminders
+    const next = this.reminders
       .filter(r => r.status === 'pending' || r.status === 'due')
-      .sort((a, b) => a.time.localeCompare(b.time));
-    el.textContent = pending.length > 0 ? `Next: ${pending[0].time} ${pending[0].label}` : 'All done ✅';
+      .sort((a, b) => a.time.localeCompare(b.time))[0];
+    el.textContent = next ? `Next: ${next.time} ${next.label}` : 'All done ✅';
   },
 
   // ── WATCH PREVIEW ─────────────────────────────────────────
   previewNextReminder() {
-    const pending = this.reminders
+    const next = [...this.reminders]
       .filter(r => r.status === 'pending')
-      .sort((a, b) => a.time.localeCompare(b.time));
-    const rem = pending[0] || this.reminders[0];
-    if (!rem) { App.showToast('No reminders to preview'); return; }
-    this._updateWatchPreview(rem);
+      .sort((a, b) => a.time.localeCompare(b.time))[0] || this.reminders[0];
+    if (!next) { App.showToast('No reminders to preview'); return; }
+    this._updateWatchPreview(next);
+  },
+
+  _previewNextOnLoad() {
+    const next = [...this.reminders].sort((a,b) => a.time.localeCompare(b.time))[0];
+    if (next) this._updateWatchPreview(next);
   },
 
   _updateWatchPreview(rem) {
-    const t = document.getElementById('wpTitle');
-    const b = document.getElementById('wpBody');
-    if (t) t.textContent = `Time for ${rem.label}`;
-    if (b) b.innerHTML = `${rem.label}<br/><small>${rem.note || 'Take as prescribed'}</small>`;
+    const set = (id, html, isHtml) => {
+      const e = document.getElementById(id);
+      if (!e) return;
+      if (isHtml) e.innerHTML = html; else e.textContent = html;
+    };
+    set('wpTitle', `Time for ${rem.label}`);
+    set('wpBody',  `${rem.label}<br/><small>${rem.note || 'Take as prescribed'}</small>`, true);
 
-    const payload = this._buildPayload(rem);
-    const prev = document.getElementById('watchPayloadPreview');
-    if (prev) {
-      prev.innerHTML = `
-        <div class="payload-line"><span class="pl-key">app</span><span class="pl-val">${payload.app}</span></div>
-        <div class="payload-line"><span class="pl-key">title</span><span class="pl-val">${payload.title}</span></div>
-        <div class="payload-line"><span class="pl-key">body</span><span class="pl-val">${payload.body}</span></div>
-        <div class="payload-line"><span class="pl-key">time</span><span class="pl-val">${payload.time}</span></div>
-        <div class="payload-line"><span class="pl-key">priority</span><span class="pl-val">${payload.priority}</span></div>
-        <div class="payload-line"><span class="pl-key">vibration</span><span class="pl-val">[${payload.vibration.join(', ')}]ms</span></div>
-        <div class="payload-line"><span class="pl-key">actions</span><span class="pl-val">${payload.actions.join(' • ')}</span></div>
-      `;
-    }
-    // Animate watch preview
-    document.getElementById('watchPreviewDevice')?.classList.add('preview-anim');
-    setTimeout(() => document.getElementById('watchPreviewDevice')?.classList.remove('preview-anim'), 1000);
+    const p = this._buildPayload(rem);
+    set('watchPayloadPreview', `
+      <div class="payload-line"><span class="pl-key">app</span><span class="pl-val">${p.app}</span></div>
+      <div class="payload-line"><span class="pl-key">title</span><span class="pl-val">${p.title}</span></div>
+      <div class="payload-line"><span class="pl-key">body</span><span class="pl-val">${p.body}</span></div>
+      <div class="payload-line"><span class="pl-key">time</span><span class="pl-val">${p.time}</span></div>
+      <div class="payload-line"><span class="pl-key">priority</span><span class="pl-val">${p.priority}</span></div>
+      <div class="payload-line"><span class="pl-key">vibration</span><span class="pl-val">[${p.vibration.join(', ')}] ms</span></div>
+      <div class="payload-line"><span class="pl-key">actions</span><span class="pl-val">${p.actions.join(' · ')}</span></div>
+    `, true);
+
+    const dev = document.getElementById('watchPreviewDevice');
+    if (dev) { dev.classList.add('preview-anim'); setTimeout(() => dev.classList.remove('preview-anim'), 700); }
   },
 
   async sendTestToWatch() {
-    const pending = this.reminders.filter(r => r.status === 'pending').sort((a,b)=>a.time.localeCompare(b.time));
-    const rem = pending[0] || this.reminders[0];
-    if (!rem) { App.showToast('No reminders to send', 'warn'); return; }
-    if (!this.connected) {
-      App.showToast('⚠️ Pair your watch first', 'warn');
-      return;
-    }
+    const rem = [...this.reminders].sort((a,b) => a.time.localeCompare(b.time))[0];
+    if (!rem) { App.showToast('No reminders to test', 'warn'); return; }
+    if (!this.connected) { App.showToast('⚠️ Connect your watch first', 'warn'); return; }
     this._animateWatchNotification(rem);
     this._playChime(rem.priority);
-    App.showToast(`📤 Test sent to watch: ${rem.label}`);
     this._updateWatchPreview(rem);
+    App.showToast(`📤 Test sent: ${rem.label}`);
   },
 
   // ── HELPERS ───────────────────────────────────────────────
