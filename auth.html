@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AyurDash — Sign In</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="auth.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body class="auth-body">
+
+<div class="auth-split">
+
+  <!-- ── LEFT PANEL ── -->
+  <div class="auth-left">
+    <div class="auth-left-content">
+      <div class="auth-logo">
+        <span class="logo-leaf">🌿</span>
+        <span class="auth-brand">AyurDash</span>
+      </div>
+      <h1 class="auth-headline">Ancient Wisdom.<br/>Modern Care.</h1>
+      <p class="auth-subline">The complete Ayurvedic platform for patients, physicians, and students — powered by intelligent technology.</p>
+      <div class="auth-features">
+        <div class="auth-feat"><span>🧘</span><span>Personalized Dinacharya & Dosha tracking</span></div>
+        <div class="auth-feat"><span>🩺</span><span>Clinical prescription & Panchakarma management</span></div>
+        <div class="auth-feat"><span>📚</span><span>Interactive training labs for Ayurvedic students</span></div>
+        <div class="auth-feat"><span>⌚</span><span>Smartwatch medication reminders</span></div>
+      </div>
+      <div class="auth-portal-chips">
+        <span class="portal-chip patient-chip">🧘 Patient</span>
+        <span class="portal-chip doctor-chip">🩺 Physician</span>
+        <span class="portal-chip student-chip">📚 Student</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── RIGHT PANEL ── -->
+  <div class="auth-right">
+    <div class="auth-card" id="authCard">
+
+      <!-- ═══ SCREEN 1: ROLE SELECT ═══ -->
+      <div id="screen-role" class="auth-screen active">
+        <div class="auth-card-logo">
+          <span class="logo-leaf">🌿</span>
+          <span class="auth-brand-sm">AyurDash</span>
+        </div>
+        <h2 class="auth-card-title">Welcome</h2>
+        <p class="auth-card-sub">Select your role to continue</p>
+        <div class="role-grid">
+          <button class="role-card" onclick="Auth.selectRole('patient')">
+            <span class="role-icon">🧘</span>
+            <span class="role-name">Patient</span>
+            <span class="role-desc">Track health & medications</span>
+          </button>
+          <button class="role-card" onclick="Auth.selectRole('doctor')">
+            <span class="role-icon">🩺</span>
+            <span class="role-name">Physician</span>
+            <span class="role-desc">Manage patients & prescriptions</span>
+          </button>
+          <button class="role-card" onclick="Auth.selectRole('student')">
+            <span class="role-icon">📚</span>
+            <span class="role-name">Student</span>
+            <span class="role-desc">Training labs & simulations</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ═══ SCREEN 2: LOGIN ═══ -->
+      <div id="screen-login" class="auth-screen">
+        <button class="back-btn" onclick="Auth.goTo('role')">← Back</button>
+        <div class="role-header" id="loginRoleHeader"></div>
+        <h2 class="auth-card-title">Sign In</h2>
+        <p class="auth-card-sub">Welcome back! Enter your credentials.</p>
+
+        <button class="google-btn" onclick="Auth.googleSignIn()">
+          <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
+          Continue with Google
+        </button>
+
+        <div class="auth-divider"><span>or sign in with email</span></div>
+
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" id="loginEmail" class="form-input" placeholder="you@example.com" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <div class="pw-wrap">
+            <input type="password" id="loginPassword" class="form-input" placeholder="Enter your password" onkeydown="if(event.key==='Enter')Auth.submitLogin()" />
+            <button class="pw-eye" onclick="Auth.togglePw('loginPassword', this)">👁</button>
+          </div>
+        </div>
+        <div class="auth-row-between">
+          <label class="remember-me"><input type="checkbox" id="rememberMe" checked /> Remember me</label>
+          <button class="link-btn" onclick="Auth.goTo('forgot')">Forgot password?</button>
+        </div>
+        <div id="loginError" class="auth-error hidden"></div>
+        <button class="btn btn-primary btn-full mt-12" onclick="Auth.submitLogin()">Sign In →</button>
+        <p class="auth-switch-text">Don't have an account? <button class="link-btn" onclick="Auth.goTo('signup')">Create Account</button></p>
+      </div>
+
+      <!-- ═══ SCREEN 3: SIGN UP ═══ -->
+      <div id="screen-signup" class="auth-screen">
+        <button class="back-btn" onclick="Auth.goTo('login')">← Back</button>
+        <div class="role-header" id="signupRoleHeader"></div>
+        <h2 class="auth-card-title">Create Account</h2>
+        <p class="auth-card-sub">Join AyurDash — it's free to get started.</p>
+
+        <button class="google-btn" onclick="Auth.googleSignIn()">
+          <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
+          Sign Up with Google
+        </button>
+
+        <div class="auth-divider"><span>or sign up with email</span></div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label class="form-label">First Name</label>
+            <input type="text" id="signupFirst" class="form-input" placeholder="Arjun" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Last Name</label>
+            <input type="text" id="signupLast" class="form-input" placeholder="Sharma" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" id="signupEmail" class="form-input" placeholder="you@example.com" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Mobile Number</label>
+          <div class="phone-wrap">
+            <select class="form-select country-code" id="countryCode">
+              <option value="+91">🇮🇳 +91</option>
+              <option value="+1">🇺🇸 +1</option>
+              <option value="+44">🇬🇧 +44</option>
+              <option value="+61">🇦🇺 +61</option>
+              <option value="+971">🇦🇪 +971</option>
+              <option value="+65">🇸🇬 +65</option>
+            </select>
+            <input type="tel" id="signupPhone" class="form-input" placeholder="9876543210" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <div class="pw-wrap">
+            <input type="password" id="signupPassword" class="form-input" placeholder="Min 8 characters" />
+            <button class="pw-eye" onclick="Auth.togglePw('signupPassword', this)">👁</button>
+          </div>
+          <div class="pw-strength-wrap mt-4">
+            <div class="pw-strength-bar" id="pwStrengthBar"></div>
+            <span class="pw-strength-label" id="pwStrengthLabel"></span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Confirm Password</label>
+          <div class="pw-wrap">
+            <input type="password" id="signupConfirm" class="form-input" placeholder="Repeat password" />
+            <button class="pw-eye" onclick="Auth.togglePw('signupConfirm', this)">👁</button>
+          </div>
+        </div>
+        <!-- Doctor extra fields -->
+        <div id="doctorExtraFields" class="hidden">
+          <div class="form-group">
+            <label class="form-label">Medical Registration Number</label>
+            <input type="text" id="medRegNo" class="form-input" placeholder="MCI-XXXX-XXXX" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Specialization</label>
+            <input type="text" id="specialization" class="form-input" placeholder="e.g. Panchakarma & Rasayana" />
+          </div>
+        </div>
+        <!-- Student extra fields -->
+        <div id="studentExtraFields" class="hidden">
+          <div class="form-group">
+            <label class="form-label">Institution / College</label>
+            <input type="text" id="institution" class="form-input" placeholder="e.g. SDM Ayurveda College" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Student ID</label>
+            <input type="text" id="studentId" class="form-input" placeholder="e.g. BAMS2024-001" />
+          </div>
+        </div>
+        <label class="terms-check">
+          <input type="checkbox" id="termsCheck" />
+          I agree to the <button class="link-btn" onclick="Auth.showTerms()">Terms of Service</button> and <button class="link-btn" onclick="Auth.showPrivacy()">Privacy Policy</button>
+        </label>
+        <div id="signupError" class="auth-error hidden mt-8"></div>
+        <button class="btn btn-primary btn-full mt-12" onclick="Auth.submitSignup()">Create Account & Verify →</button>
+        <p class="auth-switch-text">Already have an account? <button class="link-btn" onclick="Auth.goTo('login')">Sign In</button></p>
+      </div>
+
+      <!-- ═══ SCREEN 4: OTP VERIFICATION ═══ -->
+      <div id="screen-otp" class="auth-screen">
+        <div class="otp-icon">🔐</div>
+        <h2 class="auth-card-title">Verify Your Account</h2>
+        <p class="auth-card-sub" id="otpSubText">We sent a 6-digit code to your email and phone.</p>
+
+        <div class="otp-channel-tabs">
+          <button class="otp-tab active" id="tabEmail" onclick="Auth.switchOtpTab('email')">📧 Email OTP</button>
+          <button class="otp-tab" id="tabSms" onclick="Auth.switchOtpTab('sms')">📱 SMS OTP</button>
+        </div>
+
+        <div class="otp-target-display" id="otpTargetDisplay"></div>
+
+        <div class="otp-inputs" id="otpInputs">
+          <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" />
+          <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" />
+          <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" />
+          <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" />
+          <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" />
+          <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" />
+        </div>
+
+        <div id="otpError" class="auth-error hidden mt-8"></div>
+        <div id="otpSuccess" class="auth-success hidden mt-8"></div>
+
+        <button class="btn btn-primary btn-full mt-16" onclick="Auth.verifyOtp()">✔ Verify & Enter AyurDash</button>
+
+        <div class="otp-resend-row mt-12">
+          <span class="muted" id="resendCountdown">Resend code in <strong id="resendTimer">60</strong>s</span>
+          <button class="link-btn hidden" id="resendBtn" onclick="Auth.resendOtp()">Resend Code</button>
+        </div>
+
+        <div class="otp-demo-hint">
+          <strong>Demo hint:</strong> Use OTP <strong id="demoOtpHint">------</strong> to verify
+        </div>
+      </div>
+
+      <!-- ═══ SCREEN 5: FORGOT PASSWORD ═══ -->
+      <div id="screen-forgot" class="auth-screen">
+        <button class="back-btn" onclick="Auth.goTo('login')">← Back to Sign In</button>
+        <div class="otp-icon">🔑</div>
+        <h2 class="auth-card-title">Reset Password</h2>
+        <p class="auth-card-sub">Enter your email or phone and we'll send a reset code.</p>
+
+        <div class="form-group">
+          <label class="form-label">Email or Phone</label>
+          <input type="text" id="forgotContact" class="form-input" placeholder="email@example.com or +91-9876543210" />
+        </div>
+        <div id="forgotError" class="auth-error hidden"></div>
+        <button class="btn btn-primary btn-full mt-8" onclick="Auth.sendForgotOtp()">📤 Send Reset Code</button>
+
+        <div id="forgotOtpSection" class="hidden mt-16">
+          <label class="form-label">Enter Reset Code</label>
+          <div class="otp-inputs" id="forgotOtpInputs">
+            <input class="otp-box" type="text" maxlength="1" inputmode="numeric" />
+            <input class="otp-box" type="text" maxlength="1" inputmode="numeric" />
+            <input class="otp-box" type="text" maxlength="1" inputmode="numeric" />
+            <input class="otp-box" type="text" maxlength="1" inputmode="numeric" />
+            <input class="otp-box" type="text" maxlength="1" inputmode="numeric" />
+            <input class="otp-box" type="text" maxlength="1" inputmode="numeric" />
+          </div>
+          <div class="form-group mt-12">
+            <label class="form-label">New Password</label>
+            <div class="pw-wrap">
+              <input type="password" id="newPassword" class="form-input" placeholder="New password" />
+              <button class="pw-eye" onclick="Auth.togglePw('newPassword', this)">👁</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Confirm New Password</label>
+            <input type="password" id="confirmNewPassword" class="form-input" placeholder="Confirm new password" />
+          </div>
+          <div id="resetError" class="auth-error hidden"></div>
+          <button class="btn btn-success btn-full mt-8" onclick="Auth.resetPassword()">🔐 Reset Password</button>
+        </div>
+        <div class="otp-demo-hint mt-12" id="forgotDemoHint" style="display:none">
+          <strong>Demo:</strong> OTP is <strong id="forgotOtpHintVal"></strong>
+        </div>
+      </div>
+
+      <!-- ═══ SCREEN 6: GOOGLE POPUP ═══ -->
+      <div id="screen-google" class="auth-screen">
+        <div class="google-loading">
+          <div class="google-spin"></div>
+          <p id="googleLoadText">Connecting to Google...</p>
+        </div>
+        <div id="googleAccountPicker" class="hidden">
+          <h2 class="auth-card-title">Choose an account</h2>
+          <p class="auth-card-sub">to continue to AyurDash</p>
+          <div class="google-accounts" id="googleAccountsList"></div>
+          <button class="google-add-account" onclick="Auth.googleAddAccount()">+ Use another account</button>
+        </div>
+      </div>
+
+      <!-- ═══ SCREEN 7: SUCCESS ═══ -->
+      <div id="screen-success" class="auth-screen">
+        <div class="success-anim">
+          <div class="success-circle">✅</div>
+        </div>
+        <h2 class="auth-card-title">You're all set!</h2>
+        <p class="auth-card-sub" id="successMsg">Account verified. Redirecting to your dashboard...</p>
+        <div class="progress-bar-wrap mt-16">
+          <div class="progress-bar-fill" id="progressBarFill"></div>
+        </div>
+      </div>
+
+    </div><!-- /auth-card -->
+  </div><!-- /auth-right -->
+</div><!-- /auth-split -->
+
+<!-- TOAST -->
+<div id="authToast" class="auth-toast hidden"></div>
+
+<script src="database.js"></script>
+<script src="auth.js"></script>
+</body>
+</html>

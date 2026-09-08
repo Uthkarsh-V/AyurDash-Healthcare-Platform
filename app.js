@@ -14,11 +14,39 @@ const App = {
   currentView: null,
   sidebarOpen: false,
 
-  login(portal) {
+  // Boot from session — called on DOMContentLoaded
+  bootFromSession() {
+    const role   = sessionStorage.getItem('ayurdash_role');
+    const userId = sessionStorage.getItem('ayurdash_userid');
+    // Also check localStorage session
+    let session = null;
+    try { session = JSON.parse(localStorage.getItem('ayurdash_session') || 'null'); } catch(_) {}
+
+    const resolvedRole = role || (session && session.role);
+    if (!resolvedRole) { window.location.replace('auth.html'); return; }
+
+    this.login(resolvedRole, userId || (session && session.userId));
+  },
+
+  login(portal, userId) {
     this.currentPortal = portal;
-    if (portal === 'patient') this.currentUser = AyurDB.patients[0];
-    else if (portal === 'doctor') this.currentUser = AyurDB.doctors[0];
-    else this.currentUser = { name: 'Aditya Rao', role: 'Student', id: 'S001' };
+
+    // Resolve user from session userId or fall back to demo data
+    let sessionUser = null;
+    try {
+      const session = JSON.parse(localStorage.getItem('ayurdash_session') || 'null');
+      if (session) sessionUser = session;
+    } catch(_) {}
+
+    if (portal === 'patient') {
+      this.currentUser = AyurDB.patients.find(p => p.id === userId) || AyurDB.patients[0];
+      if (sessionUser) { this.currentUser = { ...this.currentUser, name: sessionUser.name || this.currentUser.name, email: sessionUser.email || this.currentUser.email }; }
+    } else if (portal === 'doctor') {
+      this.currentUser = AyurDB.doctors.find(d => d.id === userId) || AyurDB.doctors[0];
+      if (sessionUser) { this.currentUser = { ...this.currentUser, name: sessionUser.name || this.currentUser.name }; }
+    } else {
+      this.currentUser = { name: sessionUser ? sessionUser.name : 'Aditya Rao', role: 'Student', id: userId || 'S001' };
+    }
 
     document.getElementById('loginScreen').classList.add('hidden');
     document.getElementById('mainApp').classList.remove('hidden');
@@ -32,13 +60,18 @@ const App = {
   },
 
   logout() {
-    document.getElementById('mainApp').classList.add('hidden');
-    document.getElementById('loginScreen').classList.remove('hidden');
-    this.currentPortal = null;
-    this.currentUser = null;
+    // Clear session and redirect to auth
+    try {
+      localStorage.removeItem('ayurdash_session');
+      sessionStorage.removeItem('ayurdash_role');
+      sessionStorage.removeItem('ayurdash_userid');
+    } catch(_) {}
     if (Patient.breathInterval) clearInterval(Patient.breathInterval);
     if (Patient.camStream) Patient.stopAbhyangaCam();
     if (Student.auditStream) Student.stopAuditCam();
+    if (WatchReminder.watchClockInterval) clearInterval(WatchReminder.watchClockInterval);
+    if (WatchReminder.tickInterval) clearInterval(WatchReminder.tickInterval);
+    window.location.replace('auth.html');
   },
 
   buildSidebar() {
@@ -1271,4 +1304,5 @@ const Shared = {
 // ─────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   console.log('🌿 AyurDash loaded');
+  App.bootFromSession();
 });

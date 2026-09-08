@@ -4,6 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AyurDash — Intelligent Ayurvedic Care & Training Platform</title>
+  <!-- Session guard: redirect to auth.html if not logged in -->
+  <script>
+    (function(){
+      const role = sessionStorage.getItem('ayurdash_role');
+      const session = localStorage.getItem('ayurdash_session');
+      if (!role && !session) { window.location.replace('auth.html'); }
+    })();
+  </script>
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="watch.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -53,7 +61,7 @@
     </div>
     <div class="user-chip" id="userChip"></div>
     <nav class="sidebar-nav" id="sidebarNav"></nav>
-    <button class="logout-btn" onclick="App.logout()">⬅ Switch Portal</button>
+    <button class="logout-btn" onclick="App.logout()">🚪 Sign Out</button>
   </aside>
 
   <!-- TOPBAR -->
