@@ -1,24 +1,13 @@
 // ============================================================
-//  AyurDash — Authentication Engine
+//  AyurDash — Authentication Engine  v3.0  (Firebase)
 //  auth.js
 //
-//  Features:
-//   • Role selection (Patient / Doctor / Student)
-//   • Email + Password Sign In with validation
-//   • Email + Password Sign Up with strength meter
-//   • Google Sign-In simulation (account picker UI)
-//   • OTP verification via Email channel (simulated send)
-//   • OTP verification via SMS channel (simulated send)
-//   • 6-box OTP input with auto-advance + backspace
-//   • 60-second resend countdown
-//   • Forgot Password with reset-code flow
-//   • "Remember Me" with localStorage session
-//   • Role-specific extra fields (Doctor: Reg No; Student: ID)
-//   • Password strength meter
-//   • Password visibility toggle
-//   • Form validation with inline error messages
-//   • Session persistence — auto-login if session exists
-//   • Redirect to index.html after successful auth
+//  Uses Firebase Auth:
+//   • Email/Password — createUser, signIn, sendEmailVerification
+//   • Google Sign-In — GoogleAuthProvider popup
+//   • Phone SMS OTP  — PhoneAuthProvider + reCAPTCHA
+//   • Forgot Password — sendPasswordResetEmail
+//   • Firestore     — user profile stored in users/{uid}
 // ============================================================
 
 "use strict";
@@ -26,43 +15,29 @@
 const Auth = {
 
   // ── STATE ─────────────────────────────────────────────────
-  currentRole: null,
-  currentScreen: 'role',
-  pendingUser: null,       // user object being registered
-  otpChannel: 'email',    // 'email' | 'sms'
-  generatedOtp: null,
-  forgotOtp: null,
-  resendTimer: null,
-  otpContext: 'signup',   // 'signup' | 'login-2fa'
-
-  // Demo accounts — simulates a backend user database
-  accounts: [
-    { id: 'P001', role: 'patient', firstName: 'Arjun',   lastName: 'Sharma',   email: 'patient@ayurdash.com',  phone: '+919876543210', password: 'Patient@123', verified: true,  googleId: null },
-    { id: 'D001', role: 'doctor',  firstName: 'Dr. Meera', lastName: 'Nair',  email: 'doctor@ayurdash.com',   phone: '+919123456789', password: 'Doctor@123',  verified: true,  googleId: null },
-    { id: 'S001', role: 'student', firstName: 'Aditya',  lastName: 'Rao',     email: 'student@ayurdash.com',  phone: '+919000001111', password: 'Student@123', verified: true,  googleId: null },
-  ],
-
-  googleProfiles: [
-    { name: 'Arjun Sharma',   email: 'arjun.sharma@gmail.com',  avatar: 'AS' },
-    { name: 'Priya Venkatesh',email: 'priya.v@gmail.com',       avatar: 'PV' },
-    { name: 'Meera Nair',     email: 'meera.nair@gmail.com',    avatar: 'MN' },
-  ],
+  currentRole:     null,
+  currentScreen:   'role',
+  otpChannel:      'email',
+  resendTimerInt:  null,
+  confirmResult:   null,   // PhoneAuthProvider confirmation
+  recaptchaWidget: null,
 
   // ── BOOT ──────────────────────────────────────────────────
   init() {
-    // Check for existing session
-    const session = this._getSession();
-    if (session && session.role && session.userId) {
-      // Auto-login: skip auth and go straight to app
-      this._redirectToApp(session.role, session.userId);
-      return;
-    }
-    // Setup OTP input auto-advance
+    // If already signed in, go straight to app
+    FB.auth.onAuthStateChanged(user => {
+      if (user) {
+        this._resolveUserAndRedirect(user);
+      }
+    });
+
     this._setupOtpBoxes('#otpInputs');
     this._setupOtpBoxes('#forgotOtpInputs');
-    // Setup password strength meter
+
     const pwInput = document.getElementById('signupPassword');
     if (pwInput) pwInput.addEventListener('input', () => this._checkPwStrength(pwInput.value));
+
+    this._checkNotifPermission();
   },
 
   // ── NAVIGATION ────────────────────────────────────────────
@@ -73,12 +48,10 @@ const Auth = {
       doctor:  { icon: '🩺', label: 'Physician Portal' },
       student: { icon: '📚', label: 'Student Training Lab' }
     };
-    // Update role header on both login and signup screens
-    ['loginRoleHeader','signupRoleHeader'].forEach(id => {
+    ['loginRoleHeader', 'signupRoleHeader'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.innerHTML = `<span>${roleInfo[role].icon}</span> ${roleInfo[role].label}`;
     });
-    // Show/hide role-specific extra fields
     document.getElementById('doctorExtraFields').classList.toggle('hidden', role !== 'doctor');
     document.getElementById('studentExtraFields').classList.toggle('hidden', role !== 'student');
     this.goTo('login');
@@ -89,252 +62,327 @@ const Auth = {
     const el = document.getElementById(`screen-${screen}`);
     if (el) el.classList.add('active');
     this.currentScreen = screen;
-    // Clear errors
     ['loginError','signupError','forgotError','otpError','resetError'].forEach(id => {
       const e = document.getElementById(id);
       if (e) { e.textContent = ''; e.classList.add('hidden'); }
     });
   },
 
-  // ── SIGN IN ───────────────────────────────────────────────
-  submitLogin() {
+  // ── EMAIL / PASSWORD SIGN IN ──────────────────────────────
+  async submitLogin() {
     const email    = document.getElementById('loginEmail').value.trim();
     const password = document.getElementById('loginPassword').value;
-    const remember = document.getElementById('rememberMe').checked;
 
-    if (!email || !password) { this._loginErr('Please enter email and password.'); return; }
-    if (!this._validEmail(email)) { this._loginErr('Please enter a valid email address.'); return; }
+    if (!email || !password) { this._err('loginError', 'Please enter email and password.'); return; }
+    if (!this._validEmail(email)) { this._err('loginError', 'Enter a valid email address.'); return; }
 
-    // Find account
-    const account = this.accounts.find(a => a.email.toLowerCase() === email.toLowerCase());
-    if (!account) { this._loginErr('No account found with this email. Please sign up first.'); return; }
-    if (account.password !== password) { this._loginErr('Incorrect password. Please try again.'); return; }
-    if (!account.verified) { this._loginErr('Account not verified. Please complete OTP verification.'); return; }
-    if (this.currentRole && account.role !== this.currentRole) {
-      this._loginErr(`This account is registered as a ${account.role}. Please select the correct portal.`); return;
+    this._setLoading('loginBtn', true, 'Signing in...');
+    try {
+      const cred = await FB.auth.signInWithEmailAndPassword(email, password);
+      // Check email verified
+      if (!cred.user.emailVerified) {
+        await FB.auth.signOut();
+        this._err('loginError', '📧 Email not verified. Check your inbox and click the verification link.');
+        this._setLoading('loginBtn', false, 'Sign In →');
+        return;
+      }
+      // Fetch role from Firestore
+      const profile = await FB.getDoc('users', cred.user.uid);
+      if (profile && this.currentRole && profile.role !== this.currentRole) {
+        await FB.auth.signOut();
+        this._err('loginError', `This account is registered as a ${profile.role}. Please select the correct portal.`);
+        this._setLoading('loginBtn', false, 'Sign In →');
+        return;
+      }
+      // Success — onAuthStateChanged will fire and redirect
+    } catch (e) {
+      this._setLoading('loginBtn', false, 'Sign In →');
+      this._err('loginError', this._friendlyError(e.code));
     }
-
-    // Success — trigger 2FA OTP on login
-    this.pendingUser = account;
-    this.otpContext  = 'login-2fa';
-    this._sendOtp(account.email, account.phone);
-    this._showOtpScreen(account.email, account.phone);
-    if (remember) this._saveSession(account);
   },
 
-  _loginErr(msg) {
-    const el = document.getElementById('loginError');
-    el.textContent = msg; el.classList.remove('hidden');
+  // ── EMAIL / PASSWORD SIGN UP ──────────────────────────────
+  async submitSignup() {
+    const first   = document.getElementById('signupFirst').value.trim();
+    const last    = document.getElementById('signupLast').value.trim();
+    const email   = document.getElementById('signupEmail').value.trim();
+    const cc      = document.getElementById('countryCode').value;
+    const phone   = cc + document.getElementById('signupPhone').value.replace(/\D/g,'');
+    const pw      = document.getElementById('signupPassword').value;
+    const confirm = document.getElementById('signupConfirm').value;
+    const terms   = document.getElementById('termsCheck').checked;
+    const role    = this.currentRole || 'patient';
+
+    if (!first || !last)          { this._err('signupError', 'Enter your full name.'); return; }
+    if (!this._validEmail(email)) { this._err('signupError', 'Enter a valid email address.'); return; }
+    if (phone.length < 10)        { this._err('signupError', 'Enter a valid mobile number.'); return; }
+    if (pw.length < 8)            { this._err('signupError', 'Password must be at least 8 characters.'); return; }
+    if (pw !== confirm)           { this._err('signupError', 'Passwords do not match.'); return; }
+    if (!terms)                   { this._err('signupError', 'Accept the Terms of Service to continue.'); return; }
+
+    if (role === 'doctor' && !document.getElementById('medRegNo').value.trim()) {
+      this._err('signupError', 'Medical Registration Number is required.'); return;
+    }
+    if (role === 'student' && !document.getElementById('institution').value.trim()) {
+      this._err('signupError', 'Institution name is required.'); return;
+    }
+
+    this._setLoading('signupBtn', true, 'Creating account...');
+
+    try {
+      // 1. Create Firebase Auth user
+      const cred = await FB.auth.createUserWithEmailAndPassword(email, pw);
+
+      // 2. Update display name
+      await cred.user.updateProfile({ displayName: `${first} ${last}` });
+
+      // 3. Send email verification
+      await cred.user.sendEmailVerification();
+
+      // 4. Save profile to Firestore
+      const profile = {
+        uid: cred.user.uid,
+        role,
+        firstName: first,
+        lastName: last,
+        displayName: `${first} ${last}`,
+        email,
+        phone,
+        verified: false,
+        emailVerified: false,
+        photoURL: cred.user.photoURL || null,
+        specialization: document.getElementById('specialization')?.value.trim() || '',
+        institution:    document.getElementById('institution')?.value.trim()    || '',
+        studentId:      document.getElementById('studentId')?.value.trim()      || '',
+        medRegNo:       document.getElementById('medRegNo')?.value.trim()       || '',
+        createdAt: FB.serverTime(),
+        prakriti: 'To be assessed',
+        bloodGroup: '',
+        address: '',
+        allergies: [],
+        currentMedications: [],
+        privacy: { shareAllergies: true, shareTreatments: true, shareMentalHealth: false, shareLabReports: true }
+      };
+      await FB.setDoc('users', cred.user.uid, profile);
+
+      // 5. Also create role-specific sub-doc
+      await FB.setDoc(role === 'patient' ? 'patients' : role === 'doctor' ? 'doctors' : 'students', cred.user.uid, profile);
+
+      // 6. Sign out until email verified
+      await FB.auth.signOut();
+
+      this._setLoading('signupBtn', false, 'Create Account →');
+      this._showEmailVerificationScreen(email);
+
+    } catch (e) {
+      this._setLoading('signupBtn', false, 'Create Account →');
+      this._err('signupError', this._friendlyError(e.code));
+    }
   },
 
-  // ── SIGN UP ───────────────────────────────────────────────
-  submitSignup() {
-    const first    = document.getElementById('signupFirst').value.trim();
-    const last     = document.getElementById('signupLast').value.trim();
-    const email    = document.getElementById('signupEmail').value.trim();
-    const phone    = (document.getElementById('countryCode').value + document.getElementById('signupPhone').value).replace(/\s/g,'');
-    const pw       = document.getElementById('signupPassword').value;
-    const confirm  = document.getElementById('signupConfirm').value;
-    const terms    = document.getElementById('termsCheck').checked;
-    const role     = this.currentRole || 'patient';
+  _showEmailVerificationScreen(email) {
+    this.goTo('otp');
+    document.getElementById('otpSubText').textContent =
+      `We sent a verification email to ${email}. Click the link in the email, then come back and click Verify below.`;
+    document.getElementById('otpTargetDisplay').innerHTML =
+      `📧 Check your inbox: <strong>${email}</strong>`;
+    document.getElementById('otpInputs').style.display = 'none';
+    document.getElementById('otpChannelTabs').style.display = 'none';
 
-    // Validations
-    if (!first || !last)         { this._signupErr('Please enter your full name.'); return; }
-    if (!this._validEmail(email)){ this._signupErr('Please enter a valid email address.'); return; }
-    if (phone.length < 10)       { this._signupErr('Please enter a valid mobile number.'); return; }
-    if (pw.length < 8)           { this._signupErr('Password must be at least 8 characters.'); return; }
-    if (pw !== confirm)          { this._signupErr('Passwords do not match.'); return; }
-    if (!terms)                  { this._signupErr('Please accept the Terms of Service to continue.'); return; }
-
-    // Check duplicate email
-    if (this.accounts.find(a => a.email.toLowerCase() === email.toLowerCase())) {
-      this._signupErr('An account with this email already exists. Please sign in.'); return;
+    // Show a "I've verified my email" button instead
+    const verifyBtn = document.getElementById('otpVerifyBtn');
+    if (verifyBtn) {
+      verifyBtn.textContent = '✅ I verified my email — Sign In';
+      verifyBtn.onclick = () => { this.goTo('login'); document.getElementById('otpInputs').style.display = ''; document.getElementById('otpChannelTabs').style.display = ''; };
     }
-
-    // Role-specific validation
-    if (role === 'doctor') {
-      const reg = document.getElementById('medRegNo').value.trim();
-      if (!reg) { this._signupErr('Medical Registration Number is required for Physician accounts.'); return; }
-    }
-    if (role === 'student') {
-      const inst = document.getElementById('institution').value.trim();
-      if (!inst) { this._signupErr('Institution name is required for Student accounts.'); return; }
-    }
-
-    // Create pending user
-    this.pendingUser = {
-      id: role[0].toUpperCase() + Date.now().toString(36).toUpperCase(),
-      role, firstName: first, lastName: last, email, phone,
-      password: pw, verified: false, googleId: null,
-      specialization: document.getElementById('specialization')?.value || '',
-      institution: document.getElementById('institution')?.value || '',
-      studentId: document.getElementById('studentId')?.value || '',
-      medRegNo: document.getElementById('medRegNo')?.value || ''
-    };
-    this.otpContext = 'signup';
-    this._sendOtp(email, phone);
-    this._showOtpScreen(email, phone);
+    this._showToast('📧 Verification email sent! Check your inbox.');
   },
 
-  _signupErr(msg) {
-    const el = document.getElementById('signupError');
-    el.textContent = msg; el.classList.remove('hidden');
+  // ── PHONE SMS OTP ─────────────────────────────────────────
+  async sendPhoneOtp() {
+    const cc    = document.getElementById('countryCode').value;
+    const phone = cc + document.getElementById('signupPhone').value.replace(/\D/g,'');
+    if (phone.length < 10) { this._err('signupError', 'Enter a valid phone number first.'); return; }
+
+    try {
+      // Initialize reCAPTCHA verifier (invisible)
+      if (!this.recaptchaWidget) {
+        this.recaptchaWidget = new firebase.auth.RecaptchaVerifier('recaptchaContainer', {
+          size: 'invisible',
+          callback: () => {}
+        });
+      }
+      this.confirmResult = await FB.auth.signInWithPhoneNumber(phone, this.recaptchaWidget);
+      this._showSmsOtpInput(phone);
+      this._showToast(`📱 SMS sent to ${phone}`);
+    } catch (e) {
+      this._err('signupError', this._friendlyError(e.code));
+    }
+  },
+
+  _showSmsOtpInput(phone) {
+    this.goTo('otp');
+    this.otpChannel = 'sms';
+    document.getElementById('otpSubText').textContent = `Enter the 6-digit SMS code sent to ${phone}`;
+    document.getElementById('otpTargetDisplay').innerHTML = `📱 SMS sent to <strong>${phone}</strong>`;
+    document.getElementById('otpInputs').style.display = '';
+    const verifyBtn = document.getElementById('otpVerifyBtn');
+    if (verifyBtn) { verifyBtn.textContent = '✔ Verify SMS Code'; verifyBtn.onclick = () => this.verifySmsOtp(); }
+    this._startResendTimer();
+    this._setupOtpBoxes('#otpInputs');
+    setTimeout(() => { const b = document.querySelector('#otpInputs .otp-box'); if (b) b.focus(); }, 100);
+  },
+
+  async verifySmsOtp() {
+    if (!this.confirmResult) { this._err('otpError', 'No OTP session. Please resend.'); return; }
+    const boxes   = document.querySelectorAll('#otpInputs .otp-box');
+    const entered = Array.from(boxes).map(b => b.value).join('');
+    if (entered.length < 6) { this._err('otpError', 'Enter all 6 digits.'); return; }
+
+    this._setLoading('otpVerifyBtn', true, 'Verifying...');
+    try {
+      const cred = await this.confirmResult.confirm(entered);
+      boxes.forEach(b => b.classList.add('filled'));
+      this._setLoading('otpVerifyBtn', false, '✔ Verified');
+      this._showToast('✅ Phone verified!');
+      // Phone verified — now show success
+      setTimeout(() => this._resolveUserAndRedirect(cred.user), 800);
+    } catch (e) {
+      this._setLoading('otpVerifyBtn', false, '✔ Verify SMS Code');
+      boxes.forEach(b => b.classList.add('error'));
+      setTimeout(() => boxes.forEach(b => b.classList.remove('error')), 800);
+      this._err('otpError', 'Incorrect code. Try again.');
+    }
   },
 
   // ── GOOGLE SIGN IN ────────────────────────────────────────
-  googleSignIn() {
+  async googleSignIn() {
     this.goTo('google');
-    const loadText = document.getElementById('googleLoadText');
-    const picker   = document.getElementById('googleAccountPicker');
-    const list     = document.getElementById('googleAccountsList');
+    document.querySelector('.google-loading').classList.remove('hidden');
+    document.getElementById('googleAccountPicker').classList.add('hidden');
 
-    // Simulate Google OAuth loading
-    setTimeout(() => {
-      if (loadText) loadText.textContent = 'Checking your Google account...';
-    }, 600);
-    setTimeout(() => {
-      document.querySelector('.google-loading').classList.add('hidden');
-      picker.classList.remove('hidden');
-      list.innerHTML = this.googleProfiles.map(p => `
-        <div class="google-account-item" onclick="Auth.googleSelectAccount('${p.email}', '${p.name}')">
-          <div class="google-avatar">${p.avatar}</div>
-          <div>
-            <div class="google-account-name">${p.name}</div>
-            <div class="google-account-email">${p.email}</div>
-          </div>
-        </div>`).join('');
-    }, 1800);
-  },
+    try {
+      FB.googleProvider.setCustomParameters({ prompt: 'select_account' });
+      const result = await FB.auth.signInWithPopup(FB.googleProvider);
+      const user   = result.user;
 
-  googleSelectAccount(email, name) {
-    const role = this.currentRole || 'patient';
-    const [firstName, ...rest] = name.split(' ');
-    const lastName = rest.join(' ');
-
-    // Check if existing Google account
-    let account = this.accounts.find(a => a.email === email);
-    if (!account) {
-      // Auto-register via Google
-      account = {
-        id: role[0].toUpperCase() + Date.now().toString(36).toUpperCase(),
-        role, firstName, lastName, email, phone: '', password: '',
-        verified: true, googleId: email
-      };
-      this.accounts.push(account);
+      // Check if profile exists in Firestore
+      let profile = await FB.getDoc('users', user.uid);
+      if (!profile) {
+        // New Google user — save profile, ask for role if not set
+        const role = this.currentRole || 'patient';
+        const nameParts = (user.displayName || 'User').split(' ');
+        profile = {
+          uid: user.uid,
+          role,
+          firstName: nameParts[0],
+          lastName: nameParts.slice(1).join(' '),
+          displayName: user.displayName,
+          email: user.email,
+          phone: user.phoneNumber || '',
+          verified: true,
+          emailVerified: true,
+          photoURL: user.photoURL,
+          createdAt: FB.serverTime(),
+          prakriti: 'To be assessed',
+          allergies: [],
+          currentMedications: [],
+          privacy: { shareAllergies: true, shareTreatments: true, shareMentalHealth: false, shareLabReports: true }
+        };
+        await FB.setDoc('users', user.uid, profile);
+        await FB.setDoc(role === 'patient' ? 'patients' : role === 'doctor' ? 'doctors' : 'students', user.uid, profile);
+      }
+      // Role mismatch check
+      if (this.currentRole && profile.role !== this.currentRole) {
+        await FB.auth.signOut();
+        this.goTo('login');
+        this._err('loginError', `This Google account is registered as a ${profile.role}. Select the correct portal.`);
+        return;
+      }
+      this._completeAuth(user, profile);
+    } catch (e) {
+      this.goTo('login');
+      if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
+        this._err('loginError', this._friendlyError(e.code));
+      }
     }
-    this.pendingUser = account;
-    // Google accounts skip OTP — go straight to success
-    this._completeAuth(account);
   },
 
-  googleAddAccount() {
-    this._showToast('Opening Google sign-in... (simulated in demo)');
-    setTimeout(() => this.googleSelectAccount('new.user@gmail.com', 'New User'), 1500);
+  // ── FORGOT PASSWORD ───────────────────────────────────────
+  async sendForgotOtp() {
+    const contact = document.getElementById('forgotContact').value.trim();
+    if (!contact) { this._err('forgotError', 'Enter your email address.'); return; }
+    if (!this._validEmail(contact)) { this._err('forgotError', 'Enter a valid email address.'); return; }
+
+    this._setLoading('forgotBtn', true, 'Sending...');
+    try {
+      await FB.auth.sendPasswordResetEmail(contact);
+      this._setLoading('forgotBtn', false, '📤 Send Reset Email');
+      document.getElementById('forgotOtpSection').classList.remove('hidden');
+      document.getElementById('forgotDemoHint').style.display = 'block';
+      document.getElementById('forgotOtpHintVal').textContent = 'Check your email inbox';
+      this._showToast(`📧 Password reset email sent to ${contact}`);
+      this._err('forgotError', ''); // clear
+      // Show message
+      const sec = document.getElementById('forgotOtpSection');
+      sec.innerHTML = `
+        <div class="auth-success">
+          ✅ Password reset email sent to <strong>${contact}</strong>.<br/>
+          Click the link in the email to set a new password, then come back to sign in.
+        </div>
+        <button class="btn btn-primary btn-full mt-12" onclick="Auth.goTo('login')">← Back to Sign In</button>
+      `;
+    } catch (e) {
+      this._setLoading('forgotBtn', false, '📤 Send Reset Email');
+      this._err('forgotError', this._friendlyError(e.code));
+    }
   },
 
-  // ── OTP SYSTEM ────────────────────────────────────────────
-  _generateOtp() {
-    return String(Math.floor(100000 + Math.random() * 900000));
+  // ── AUTH STATE RESOLUTION ─────────────────────────────────
+  async _resolveUserAndRedirect(user) {
+    try {
+      let profile = await FB.getDoc('users', user.uid);
+      if (!profile) {
+        // Edge case: auth exists but no Firestore profile — use defaults
+        profile = { role: this.currentRole || 'patient', displayName: user.displayName || 'User' };
+        await FB.setDoc('users', user.uid, { ...profile, uid: user.uid, email: user.email, createdAt: FB.serverTime() });
+      }
+      this._completeAuth(user, profile);
+    } catch (e) {
+      console.error('Profile fetch error:', e);
+      this._completeAuth(user, { role: this.currentRole || 'patient', displayName: user.displayName });
+    }
   },
 
-  _sendOtp(email, phone) {
-    this.generatedOtp = this._generateOtp();
-    console.log(`[AyurDash OTP] Code: ${this.generatedOtp} → Email: ${email} | SMS: ${phone}`);
+  _completeAuth(user, profile) {
+    // Save session to sessionStorage + localStorage
+    const session = {
+      uid:   user.uid,
+      role:  profile.role || this.currentRole || 'patient',
+      name:  profile.displayName || user.displayName || 'User',
+      email: profile.email || user.email,
+      photoURL: profile.photoURL || user.photoURL || null,
+      ts: Date.now()
+    };
+    sessionStorage.setItem('ayurdash_role',    session.role);
+    sessionStorage.setItem('ayurdash_userid',  session.uid);
+    sessionStorage.setItem('ayurdash_name',    session.name);
+    localStorage.setItem('ayurdash_session',   JSON.stringify(session));
 
-    // In production: call backend API here
-    // fetch('/api/send-otp', { method:'POST', body: JSON.stringify({ email, phone, otp: this.generatedOtp }) })
-
-    // Demo: show OTP hint
-    const hint = document.getElementById('demoOtpHint');
-    if (hint) hint.textContent = this.generatedOtp;
-
-    this._showToast(`📧 OTP sent to ${email} | 📱 SMS sent to ${phone}`);
-  },
-
-  _showOtpScreen(email, phone) {
-    this._clearOtpBoxes('#otpInputs');
-    this.goTo('otp');
-
-    // Update sub text
-    const masked_email = email.replace(/(.{2})(.+)(@.+)/, '$1***$3');
-    const masked_phone = phone.slice(0, -4).replace(/./g, '*') + phone.slice(-4);
-    document.getElementById('otpSubText').textContent =
-      `A 6-digit code has been sent to your email and mobile number.`;
-    this._setOtpTarget(email, phone);
-    this._startResendTimer();
-
-    // Focus first box
+    // Show success screen then redirect
+    this.goTo('success');
+    const msg = document.getElementById('successMsg');
+    if (msg) msg.textContent = `Welcome, ${session.name.split(' ')[0]}! Loading your ${session.role} dashboard...`;
     setTimeout(() => {
-      const boxes = document.querySelectorAll('#otpInputs .otp-box');
-      if (boxes[0]) boxes[0].focus();
+      const bar = document.getElementById('progressBarFill');
+      if (bar) bar.style.width = '100%';
     }, 100);
+    setTimeout(() => { window.location.replace('index.html'); }, 3000);
   },
 
-  _setOtpTarget(email, phone) {
-    const masked_email = email.replace(/(.{2})(.*)(@.+)/, (_, a, b, c) => a + '*'.repeat(Math.max(b.length,3)) + c);
-    const masked_phone = phone.length > 4 ? '*'.repeat(phone.length - 4) + phone.slice(-4) : phone;
-    const el = document.getElementById('otpTargetDisplay');
-    if (!el) return;
-    if (this.otpChannel === 'email') {
-      el.innerHTML = `📧 Code sent to <strong>${masked_email}</strong>`;
-    } else {
-      el.innerHTML = `📱 Code sent to <strong>${masked_phone}</strong>`;
-    }
-  },
-
-  switchOtpTab(channel) {
-    this.otpChannel = channel;
-    document.getElementById('tabEmail').classList.toggle('active', channel === 'email');
-    document.getElementById('tabSms').classList.toggle('active', channel === 'sms');
-    if (this.pendingUser) {
-      this._setOtpTarget(this.pendingUser.email || '', this.pendingUser.phone || '');
-    }
-    // Resend OTP for new channel
-    if (this.pendingUser) this._sendOtp(this.pendingUser.email, this.pendingUser.phone);
-    this._startResendTimer();
-  },
-
-  verifyOtp() {
-    const boxes = document.querySelectorAll('#otpInputs .otp-box');
-    const entered = Array.from(boxes).map(b => b.value).join('');
-
-    if (entered.length < 6) {
-      this._otpErr('Please enter all 6 digits.'); return;
-    }
-    if (entered !== this.generatedOtp) {
-      boxes.forEach(b => b.classList.add('error'));
-      setTimeout(() => boxes.forEach(b => b.classList.remove('error')), 800);
-      this._otpErr('Incorrect OTP. Please check and try again.'); return;
-    }
-
-    // OTP correct
-    boxes.forEach(b => { b.classList.add('filled'); b.classList.remove('error'); });
-    const successEl = document.getElementById('otpSuccess');
-    if (successEl) { successEl.textContent = '✅ OTP verified successfully!'; successEl.classList.remove('hidden'); }
-
-    if (this.pendingUser) {
-      this.pendingUser.verified = true;
-      if (this.otpContext === 'signup') this.accounts.push(this.pendingUser);
-      setTimeout(() => this._completeAuth(this.pendingUser), 800);
-    }
-  },
-
-  _otpErr(msg) {
-    const el = document.getElementById('otpError');
-    if (el) { el.textContent = msg; el.classList.remove('hidden'); }
-  },
-
-  resendOtp() {
-    if (!this.pendingUser) return;
-    this._sendOtp(this.pendingUser.email, this.pendingUser.phone);
-    this._clearOtpBoxes('#otpInputs');
-    this._startResendTimer();
-    const err = document.getElementById('otpError');
-    if (err) err.classList.add('hidden');
-  },
-
+  // ── OTP RESEND TIMER ──────────────────────────────────────
   _startResendTimer() {
-    if (this.resendTimer) clearInterval(this.resendTimer);
+    if (this.resendTimerInt) clearInterval(this.resendTimerInt);
     let secs = 60;
     const timerEl   = document.getElementById('resendTimer');
     const countdown = document.getElementById('resendCountdown');
@@ -342,205 +390,142 @@ const Auth = {
     if (timerEl) timerEl.textContent = secs;
     if (countdown) countdown.classList.remove('hidden');
     if (resendBtn) resendBtn.classList.add('hidden');
-
-    this.resendTimer = setInterval(() => {
+    this.resendTimerInt = setInterval(() => {
       secs--;
       if (timerEl) timerEl.textContent = secs;
       if (secs <= 0) {
-        clearInterval(this.resendTimer);
+        clearInterval(this.resendTimerInt);
         if (countdown) countdown.classList.add('hidden');
         if (resendBtn) resendBtn.classList.remove('hidden');
       }
     }, 1000);
   },
 
-  // ── FORGOT PASSWORD ───────────────────────────────────────
-  sendForgotOtp() {
-    const contact = document.getElementById('forgotContact').value.trim();
-    if (!contact) { this._forgotErr('Please enter your email or phone number.'); return; }
-
-    const account = this.accounts.find(a =>
-      a.email.toLowerCase() === contact.toLowerCase() || a.phone === contact
-    );
-    if (!account) { this._forgotErr('No account found with this email or phone.'); return; }
-
-    this.forgotOtp = this._generateOtp();
-    this.pendingUser = account;
-    console.log(`[AyurDash RESET OTP] ${this.forgotOtp} → ${contact}`);
-
-    const hintEl = document.getElementById('forgotOtpHintVal');
-    const hintWrap = document.getElementById('forgotDemoHint');
-    if (hintEl) hintEl.textContent = this.forgotOtp;
-    if (hintWrap) hintWrap.style.display = 'block';
-
-    document.getElementById('forgotOtpSection').classList.remove('hidden');
-    this._setupOtpBoxes('#forgotOtpInputs');
-    this._showToast(`📧 Reset code sent to ${contact}`);
-    const err = document.getElementById('forgotError');
-    if (err) err.classList.add('hidden');
+  resendOtp() {
+    this._showToast('Resending code...');
+    this._startResendTimer();
   },
 
-  resetPassword() {
-    const boxes = document.querySelectorAll('#forgotOtpInputs .otp-box');
-    const entered = Array.from(boxes).map(b => b.value).join('');
-    const newPw  = document.getElementById('newPassword').value;
-    const confPw = document.getElementById('confirmNewPassword').value;
-
-    if (entered.length < 6)           { this._resetErr('Enter the 6-digit reset code.'); return; }
-    if (entered !== this.forgotOtp)   { this._resetErr('Invalid reset code.'); return; }
-    if (newPw.length < 8)             { this._resetErr('Password must be at least 8 characters.'); return; }
-    if (newPw !== confPw)             { this._resetErr('Passwords do not match.'); return; }
-
-    // Update password
-    if (this.pendingUser) {
-      const acct = this.accounts.find(a => a.id === this.pendingUser.id);
-      if (acct) acct.password = newPw;
-    }
-    this._showToast('✅ Password reset successfully!');
-    setTimeout(() => this.goTo('login'), 1500);
+  switchOtpTab(channel) {
+    this.otpChannel = channel;
+    document.getElementById('tabEmail').classList.toggle('active', channel === 'email');
+    document.getElementById('tabSms').classList.toggle('active', channel === 'sms');
   },
 
-  _forgotErr(msg) { const e = document.getElementById('forgotError'); if (e) { e.textContent = msg; e.classList.remove('hidden'); } },
-  _resetErr(msg)  { const e = document.getElementById('resetError');  if (e) { e.textContent = msg; e.classList.remove('hidden'); } },
-
-  // ── COMPLETE AUTH ─────────────────────────────────────────
-  _completeAuth(account) {
-    this._saveSession(account);
-    this.goTo('success');
-    const msg = document.getElementById('successMsg');
-    if (msg) msg.textContent = `Welcome, ${account.firstName}! Redirecting to your ${account.role} dashboard...`;
-
-    // Animate progress bar
-    setTimeout(() => {
-      const bar = document.getElementById('progressBarFill');
-      if (bar) bar.style.width = '100%';
-    }, 100);
-
-    // Redirect after 3 seconds
-    setTimeout(() => this._redirectToApp(account.role, account.id), 3200);
-  },
-
-  _redirectToApp(role, userId) {
-    // Pass role + userId via sessionStorage for app.js to read
-    sessionStorage.setItem('ayurdash_role',   role);
-    sessionStorage.setItem('ayurdash_userid', userId);
-    window.location.href = 'index.html';
-  },
-
-  // ── SESSION ───────────────────────────────────────────────
-  _saveSession(account) {
-    const session = { role: account.role, userId: account.id, name: account.firstName + ' ' + account.lastName, email: account.email, ts: Date.now() };
-    localStorage.setItem('ayurdash_session', JSON.stringify(session));
-    sessionStorage.setItem('ayurdash_role',   account.role);
-    sessionStorage.setItem('ayurdash_userid', account.id);
-  },
-
-  _getSession() {
-    try {
-      const s = localStorage.getItem('ayurdash_session');
-      if (!s) return null;
-      const session = JSON.parse(s);
-      // Session expires after 7 days
-      if (Date.now() - session.ts > 7 * 24 * 60 * 60 * 1000) {
-        localStorage.removeItem('ayurdash_session');
-        return null;
-      }
-      return session;
-    } catch (_) { return null; }
-  },
-
-  clearSession() {
-    localStorage.removeItem('ayurdash_session');
-    sessionStorage.removeItem('ayurdash_role');
-    sessionStorage.removeItem('ayurdash_userid');
+  verifyOtp() {
+    // Email verification flow — just redirect to login
+    this.goTo('login');
   },
 
   // ── OTP INPUT SETUP ───────────────────────────────────────
   _setupOtpBoxes(selector) {
     const boxes = document.querySelectorAll(`${selector} .otp-box`);
     boxes.forEach((box, i) => {
-      box.addEventListener('input', (e) => {
-        const val = e.target.value.replace(/\D/g, '');
-        box.value = val.slice(-1);
+      box.addEventListener('input', e => {
+        box.value = e.target.value.replace(/\D/g,'').slice(-1);
         box.classList.toggle('filled', !!box.value);
-        if (box.value && i < boxes.length - 1) boxes[i + 1].focus();
+        if (box.value && i < boxes.length - 1) boxes[i+1].focus();
       });
-      box.addEventListener('keydown', (e) => {
-        if (e.key === 'Backspace' && !box.value && i > 0) { boxes[i - 1].focus(); boxes[i - 1].value = ''; boxes[i-1].classList.remove('filled'); }
-        if (e.key === 'ArrowLeft'  && i > 0) boxes[i - 1].focus();
-        if (e.key === 'ArrowRight' && i < boxes.length - 1) boxes[i + 1].focus();
+      box.addEventListener('keydown', e => {
+        if (e.key === 'Backspace' && !box.value && i > 0) { boxes[i-1].focus(); boxes[i-1].value=''; boxes[i-1].classList.remove('filled'); }
+        if (e.key === 'ArrowLeft'  && i > 0)              boxes[i-1].focus();
+        if (e.key === 'ArrowRight' && i < boxes.length-1) boxes[i+1].focus();
       });
-      box.addEventListener('paste', (e) => {
+      box.addEventListener('paste', e => {
         e.preventDefault();
-        const pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
-        boxes.forEach((b, j) => { b.value = pasted[j] || ''; b.classList.toggle('filled', !!b.value); });
-        const next = boxes[Math.min(pasted.length, boxes.length - 1)];
-        if (next) next.focus();
+        const pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g,'');
+        boxes.forEach((b,j) => { b.value = pasted[j]||''; b.classList.toggle('filled', !!b.value); });
+        boxes[Math.min(pasted.length, boxes.length-1)].focus();
       });
-    });
-  },
-
-  _clearOtpBoxes(selector) {
-    document.querySelectorAll(`${selector} .otp-box`).forEach(b => {
-      b.value = ''; b.classList.remove('filled', 'error');
     });
   },
 
   // ── PASSWORD HELPERS ──────────────────────────────────────
-  togglePw(inputId, btn) {
-    const input = document.getElementById(inputId);
-    if (!input) return;
-    const isText = input.type === 'text';
-    input.type = isText ? 'password' : 'text';
-    btn.textContent = isText ? '👁' : '🙈';
+  togglePw(id, btn) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.type = el.type === 'text' ? 'password' : 'text';
+    btn.textContent = el.type === 'text' ? '🙈' : '👁';
   },
 
   _checkPwStrength(pw) {
-    const bar   = document.getElementById('pwStrengthBar');
-    const label = document.getElementById('pwStrengthLabel');
-    if (!bar || !label) return;
-    let score = 0;
-    if (pw.length >= 8)  score++;
-    if (/[A-Z]/.test(pw)) score++;
-    if (/[0-9]/.test(pw)) score++;
-    if (/[^A-Za-z0-9]/.test(pw)) score++;
-
+    const bar = document.getElementById('pwStrengthBar');
+    const lbl = document.getElementById('pwStrengthLabel');
+    if (!bar || !lbl) return;
+    let s = 0;
+    if (pw.length >= 8) s++;
+    if (/[A-Z]/.test(pw)) s++;
+    if (/[0-9]/.test(pw)) s++;
+    if (/[^A-Za-z0-9]/.test(pw)) s++;
     const levels = [
-      { w: '0%',   color: '#e5e7eb', label: '',        labelColor: '#9ca3af' },
-      { w: '25%',  color: '#dc3545', label: 'Weak',    labelColor: '#dc3545' },
-      { w: '50%',  color: '#f59e0b', label: 'Fair',    labelColor: '#f59e0b' },
-      { w: '75%',  color: '#3b82f6', label: 'Good',    labelColor: '#3b82f6' },
-      { w: '100%', color: '#2d6a4f', label: 'Strong ✅', labelColor: '#2d6a4f' }
+      { w:'0%',   c:'#e5e7eb', l:'',          lc:'#9ca3af' },
+      { w:'25%',  c:'#dc3545', l:'Weak',       lc:'#dc3545' },
+      { w:'50%',  c:'#f59e0b', l:'Fair',       lc:'#f59e0b' },
+      { w:'75%',  c:'#3b82f6', l:'Good',       lc:'#3b82f6' },
+      { w:'100%', c:'#2d6a4f', l:'Strong ✅',  lc:'#2d6a4f' }
     ];
-    const l = levels[score] || levels[0];
-    bar.style.setProperty('--pw-w', l.w);
-    bar.style.setProperty('--pw-color', l.color);
-    label.textContent = l.label;
-    label.style.color = l.labelColor;
+    const lv = levels[s] || levels[0];
+    bar.style.setProperty('--pw-w', lv.w);
+    bar.style.setProperty('--pw-color', lv.c);
+    lbl.textContent = lv.l;
+    lbl.style.color = lv.lc;
   },
 
-  // ── VALIDATION ────────────────────────────────────────────
-  _validEmail(email) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  // ── NOTIFICATION PERMISSION ───────────────────────────────
+  async _checkNotifPermission() {
+    if ('Notification' in window && Notification.permission === 'default') {
+      await Notification.requestPermission();
+    }
   },
 
-  // ── TERMS / PRIVACY (modal stubs) ─────────────────────────
-  showTerms() {
-    this._showToast('Terms of Service: AyurDash is for informational purposes. Always consult a licensed Ayurvedic physician for medical decisions.');
-  },
-  showPrivacy() {
-    this._showToast('Privacy Policy: Your health data is stored locally and never shared without your explicit consent.');
+  // ── UI HELPERS ────────────────────────────────────────────
+  _err(id, msg) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (!msg) { el.classList.add('hidden'); return; }
+    el.textContent = msg;
+    el.classList.remove('hidden');
   },
 
-  // ── TOAST ─────────────────────────────────────────────────
+  _setLoading(btnId, loading, label) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.disabled = loading;
+    btn.textContent = label;
+  },
+
+  _validEmail(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e); },
+
+  _friendlyError(code) {
+    const map = {
+      'auth/user-not-found':          '❌ No account found with this email.',
+      'auth/wrong-password':          '❌ Incorrect password. Try again.',
+      'auth/email-already-in-use':    '❌ An account already exists with this email.',
+      'auth/weak-password':           '❌ Password must be at least 6 characters.',
+      'auth/invalid-email':           '❌ Invalid email address.',
+      'auth/too-many-requests':       '⚠️ Too many attempts. Please wait a few minutes.',
+      'auth/network-request-failed':  '🌐 Network error. Check your internet connection.',
+      'auth/popup-blocked':           '⚠️ Popup blocked. Allow popups for this site.',
+      'auth/invalid-phone-number':    '❌ Invalid phone number format.',
+      'auth/invalid-verification-code': '❌ Incorrect OTP code.',
+      'auth/code-expired':            '⏰ Code expired. Please resend.',
+      'auth/quota-exceeded':          '⚠️ SMS quota exceeded. Try email verification.',
+      'auth/user-disabled':           '❌ This account has been disabled.',
+    };
+    return map[code] || `❌ Error: ${code}`;
+  },
+
   _showToast(msg) {
     const t = document.getElementById('authToast');
     if (!t) return;
     t.textContent = msg;
     t.classList.remove('hidden');
     setTimeout(() => t.classList.add('hidden'), 4000);
-  }
+  },
+
+  showTerms()    { this._showToast('Terms: AyurDash is for informational use. Consult a licensed physician for medical decisions.'); },
+  showPrivacy()  { this._showToast('Privacy: Your data is encrypted and stored securely in Firebase. Never sold to third parties.'); },
+  googleAddAccount() { this.googleSignIn(); }
 };
 
-// ── BOOT ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => Auth.init());

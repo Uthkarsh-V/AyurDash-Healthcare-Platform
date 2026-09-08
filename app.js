@@ -14,38 +14,43 @@ const App = {
   currentView: null,
   sidebarOpen: false,
 
-  // Boot from session — called on DOMContentLoaded
+  // Boot from Firebase Auth session
   bootFromSession() {
-    const role   = sessionStorage.getItem('ayurdash_role');
-    const userId = sessionStorage.getItem('ayurdash_userid');
-    // Also check localStorage session
-    let session = null;
-    try { session = JSON.parse(localStorage.getItem('ayurdash_session') || 'null'); } catch(_) {}
-
-    const resolvedRole = role || (session && session.role);
-    if (!resolvedRole) { window.location.replace('auth.html'); return; }
-
-    this.login(resolvedRole, userId || (session && session.userId));
+    // Firebase Auth persists session automatically — onAuthStateChanged handles it
+    FB.auth.onAuthStateChanged(async user => {
+      if (!user) {
+        window.location.replace('auth.html');
+        return;
+      }
+      // Load profile from Firestore
+      try {
+        const profile = await FB.getDoc('users', user.uid);
+        const role = profile?.role
+          || sessionStorage.getItem('ayurdash_role')
+          || 'patient';
+        this.login(role, user.uid, profile || {});
+      } catch(_) {
+        const role = sessionStorage.getItem('ayurdash_role') || 'patient';
+        this.login(role, user.uid, {});
+      }
+    });
   },
 
-  login(portal, userId) {
+  login(portal, userId, profile) {
     this.currentPortal = portal;
 
-    // Resolve user from session userId or fall back to demo data
-    let sessionUser = null;
-    try {
-      const session = JSON.parse(localStorage.getItem('ayurdash_session') || 'null');
-      if (session) sessionUser = session;
-    } catch(_) {}
+    // Build currentUser from Firestore profile + fallback to demo data
+    const name = profile?.displayName || profile?.name
+      || (portal === 'patient' ? 'Arjun Sharma' : portal === 'doctor' ? 'Dr. Meera Nair' : 'Aditya Rao');
 
     if (portal === 'patient') {
-      this.currentUser = AyurDB.patients.find(p => p.id === userId) || AyurDB.patients[0];
-      if (sessionUser) { this.currentUser = { ...this.currentUser, name: sessionUser.name || this.currentUser.name, email: sessionUser.email || this.currentUser.email }; }
+      const base = AyurDB.patients[0];
+      this.currentUser = { ...base, ...profile, id: userId || base.id, name };
     } else if (portal === 'doctor') {
-      this.currentUser = AyurDB.doctors.find(d => d.id === userId) || AyurDB.doctors[0];
-      if (sessionUser) { this.currentUser = { ...this.currentUser, name: sessionUser.name || this.currentUser.name }; }
+      const base = AyurDB.doctors[0];
+      this.currentUser = { ...base, ...profile, id: userId || base.id, name };
     } else {
-      this.currentUser = { name: sessionUser ? sessionUser.name : 'Aditya Rao', role: 'Student', id: userId || 'S001' };
+      this.currentUser = { name, role: 'student', id: userId || 'S001', ...profile };
     }
 
     document.getElementById('loginScreen').classList.add('hidden');
@@ -55,13 +60,16 @@ const App = {
     this.buildUserChip();
     this.startTopbar();
 
+    // Seed Firestore medicines on first load
+    if (typeof Store !== 'undefined') Store.seedMedicines().catch(() => {});
+
     const defaultViews = { patient: 'dinacharya', doctor: 'clinical', student: 'netra' };
     this.navigate(defaultViews[portal]);
   },
 
-  logout() {
-    // Clear session and redirect to auth
+  async logout() {
     try {
+      await FB.auth.signOut();
       localStorage.removeItem('ayurdash_session');
       sessionStorage.removeItem('ayurdash_role');
       sessionStorage.removeItem('ayurdash_userid');
@@ -69,8 +77,10 @@ const App = {
     if (Patient.breathInterval) clearInterval(Patient.breathInterval);
     if (Patient.camStream) Patient.stopAbhyangaCam();
     if (Student.auditStream) Student.stopAuditCam();
-    if (WatchReminder.watchClockInterval) clearInterval(WatchReminder.watchClockInterval);
-    if (WatchReminder.tickInterval) clearInterval(WatchReminder.tickInterval);
+    if (typeof WatchReminder !== 'undefined') {
+      clearInterval(WatchReminder.watchClockInterval);
+      clearInterval(WatchReminder.tickInterval);
+    }
     window.location.replace('auth.html');
   },
 

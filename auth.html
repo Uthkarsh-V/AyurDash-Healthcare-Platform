@@ -7,6 +7,11 @@
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="auth.css" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet" />
+  <!-- Firebase SDK v9 compat (works with global firebase.* API) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 </head>
 <body class="auth-body">
 
@@ -96,7 +101,7 @@
           <button class="link-btn" onclick="Auth.goTo('forgot')">Forgot password?</button>
         </div>
         <div id="loginError" class="auth-error hidden"></div>
-        <button class="btn btn-primary btn-full mt-12" onclick="Auth.submitLogin()">Sign In →</button>
+        <button class="btn btn-primary btn-full mt-12" id="loginBtn" onclick="Auth.submitLogin()">Sign In →</button>
         <p class="auth-switch-text">Don't have an account? <button class="link-btn" onclick="Auth.goTo('signup')">Create Account</button></p>
       </div>
 
@@ -187,7 +192,7 @@
           I agree to the <button class="link-btn" onclick="Auth.showTerms()">Terms of Service</button> and <button class="link-btn" onclick="Auth.showPrivacy()">Privacy Policy</button>
         </label>
         <div id="signupError" class="auth-error hidden mt-8"></div>
-        <button class="btn btn-primary btn-full mt-12" onclick="Auth.submitSignup()">Create Account & Verify →</button>
+        <button class="btn btn-primary btn-full mt-12" id="signupBtn" onclick="Auth.submitSignup()">Create Account & Verify →</button>
         <p class="auth-switch-text">Already have an account? <button class="link-btn" onclick="Auth.goTo('login')">Sign In</button></p>
       </div>
 
@@ -197,7 +202,7 @@
         <h2 class="auth-card-title">Verify Your Account</h2>
         <p class="auth-card-sub" id="otpSubText">We sent a 6-digit code to your email and phone.</p>
 
-        <div class="otp-channel-tabs">
+        <div class="otp-channel-tabs" id="otpChannelTabs">
           <button class="otp-tab active" id="tabEmail" onclick="Auth.switchOtpTab('email')">📧 Email OTP</button>
           <button class="otp-tab" id="tabSms" onclick="Auth.switchOtpTab('sms')">📱 SMS OTP</button>
         </div>
@@ -216,7 +221,7 @@
         <div id="otpError" class="auth-error hidden mt-8"></div>
         <div id="otpSuccess" class="auth-success hidden mt-8"></div>
 
-        <button class="btn btn-primary btn-full mt-16" onclick="Auth.verifyOtp()">✔ Verify & Enter AyurDash</button>
+        <button class="btn btn-primary btn-full mt-16" id="otpVerifyBtn" onclick="Auth.verifyOtp()">✔ Verify & Enter AyurDash</button>
 
         <div class="otp-resend-row mt-12">
           <span class="muted" id="resendCountdown">Resend code in <strong id="resendTimer">60</strong>s</span>
@@ -240,7 +245,7 @@
           <input type="text" id="forgotContact" class="form-input" placeholder="email@example.com or +91-9876543210" />
         </div>
         <div id="forgotError" class="auth-error hidden"></div>
-        <button class="btn btn-primary btn-full mt-8" onclick="Auth.sendForgotOtp()">📤 Send Reset Code</button>
+        <button class="btn btn-primary btn-full mt-8" id="forgotBtn" onclick="Auth.sendForgotOtp()">📤 Send Reset Email</button>
 
         <div id="forgotOtpSection" class="hidden mt-16">
           <label class="form-label">Enter Reset Code</label>
@@ -304,7 +309,11 @@
 <!-- TOAST -->
 <div id="authToast" class="auth-toast hidden"></div>
 
+<!-- reCAPTCHA container for Phone Auth (invisible) -->
+<div id="recaptchaContainer"></div>
+
 <script src="database.js"></script>
+<script src="firebase.js"></script>
 <script src="auth.js"></script>
 </body>
 </html>

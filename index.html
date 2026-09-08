@@ -4,12 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AyurDash — Intelligent Ayurvedic Care & Training Platform</title>
-  <!-- Session guard: redirect to auth.html if not logged in -->
+  <!-- Session guard: Firebase Auth handles redirect in app.js bootFromSession() -->
+  <!-- Quick check for cached session to avoid flash of content -->
   <script>
     (function(){
-      const role = sessionStorage.getItem('ayurdash_role');
-      const session = localStorage.getItem('ayurdash_session');
-      if (!role && !session) { window.location.replace('auth.html'); }
+      const cached = sessionStorage.getItem('ayurdash_role');
+      const stored = localStorage.getItem('ayurdash_session');
+      // If nothing cached at all, redirect immediately before Firebase loads
+      // Firebase onAuthStateChanged in app.js will do the authoritative check
+      if (!cached && !stored) { window.location.replace('auth.html'); }
     })();
   </script>
   <link rel="stylesheet" href="style.css" />
@@ -670,7 +673,14 @@
   </div>
 </div>
 
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <script src="database.js"></script>
+<script src="firebase.js"></script>
+<script src="firestore.js"></script>
 <script src="app.js"></script>
 <script src="watch.js"></script>
 </body>
