@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AyurDash — Intelligent Ayurvedic Care & Training Platform</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="watch.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════ LOGIN SCREEN ═══════════════════════════════════════ -->
+<div id="loginScreen" class="login-screen">
+  <div class="login-bg-art"></div>
+  <div class="login-card">
+    <div class="login-logo">
+      <span class="logo-leaf">🌿</span>
+      <span class="logo-text">AyurDash</span>
+    </div>
+    <p class="login-tagline">Intelligent Ayurvedic Care & Training Platform</p>
+    <div class="portal-select-grid">
+      <button class="portal-btn" onclick="App.login('patient')">
+        <span class="portal-icon">🧘</span>
+        <span class="portal-label">Patient</span>
+        <span class="portal-sub">Personal Health Portal</span>
+      </button>
+      <button class="portal-btn" onclick="App.login('doctor')">
+        <span class="portal-icon">🩺</span>
+        <span class="portal-label">Physician</span>
+        <span class="portal-sub">Clinical Hub</span>
+      </button>
+      <button class="portal-btn" onclick="App.login('student')">
+        <span class="portal-icon">📚</span>
+        <span class="portal-label">Student</span>
+        <span class="portal-sub">Training Lab</span>
+      </button>
+    </div>
+    <p class="login-note">Click any portal to enter as a demo user</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ MAIN APP ═══════════════════════════════════════ -->
+<div id="mainApp" class="main-app hidden">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <span class="logo-leaf">🌿</span>
+      <span class="sidebar-brand">AyurDash</span>
+      <button class="sidebar-close" onclick="App.toggleSidebar()">✕</button>
+    </div>
+    <div class="user-chip" id="userChip"></div>
+    <nav class="sidebar-nav" id="sidebarNav"></nav>
+    <button class="logout-btn" onclick="App.logout()">⬅ Switch Portal</button>
+  </aside>
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <button class="hamburger" onclick="App.toggleSidebar()">☰</button>
+    <div class="topbar-title" id="topbarTitle">Dashboard</div>
+    <div class="topbar-right">
+      <span class="weather-chip" id="weatherChip">🌤 Loading...</span>
+      <button class="watch-topbar-btn" id="watchTopbarBtn" onclick="App.navigate('watch')" title="Smartwatch Reminders">
+        <span class="watch-icon-anim" id="watchIconAnim">⌚</span>
+        <span class="watch-badge hidden" id="watchBadge">0</span>
+      </button>
+      <span class="topbar-date" id="topbarDate"></span>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <main class="content-area" id="contentArea">
+
+    <!-- ══════════ PATIENT PORTAL VIEWS ══════════ -->
+
+    <!-- 1. Daily Dashboard (Dinacharya) -->
+    <section id="view-dinacharya" class="view hidden">
+      <h2 class="view-title">🌅 Daily Dashboard — Dinacharya</h2>
+      <div class="grid-3">
+        <div class="card dosha-card" id="doshaCard">
+          <h3>Dosha Balance</h3>
+          <div class="dosha-bars" id="doshaBars"></div>
+        </div>
+        <div class="card wellness-card">
+          <h3>Mental Wellness</h3>
+          <div class="breathing-guide" id="breathingGuide">
+            <div class="breath-circle" id="breathCircle"></div>
+            <p id="breathText">Tap to start guided breathing</p>
+            <button class="btn btn-primary" onclick="Patient.toggleBreathing()">▶ Start Pranayama</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Today's Summary</h3>
+          <div id="summaryStats" class="summary-stats"></div>
+        </div>
+      </div>
+      <div class="card mt-16">
+        <h3>Daily Routine Tasks</h3>
+        <div id="dinacharyaList" class="dinacharya-list"></div>
+      </div>
+    </section>
+
+    <!-- 2. AI Prescription Scanner -->
+    <section id="view-scanner" class="view hidden">
+      <h2 class="view-title">📋 AI Prescription Scanner</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h3>Upload Prescription</h3>
+          <div class="upload-zone" id="uploadZone" ondragover="event.preventDefault()" ondrop="Patient.handleDrop(event)">
+            <span class="upload-icon">📄</span>
+            <p>Drag & drop prescription image here</p>
+            <p class="muted">or</p>
+            <input type="file" id="prescriptionFile" accept="image/*" onchange="Patient.scanPrescription(event)" style="display:none" />
+            <button class="btn btn-primary" onclick="document.getElementById('prescriptionFile').click()">Choose File</button>
+          </div>
+          <div id="scanPreview" class="scan-preview hidden"></div>
+        </div>
+        <div class="card">
+          <h3>Parsed Medications</h3>
+          <div id="parsedMeds" class="parsed-meds">
+            <p class="muted">Upload a prescription to auto-parse medications and schedule them.</p>
+          </div>
+        </div>
+      </div>
+      <div id="scheduleResult" class="card mt-16 hidden">
+        <h3>📅 Auto-Generated Schedule</h3>
+        <div id="scheduleList"></div>
+        <button class="btn btn-success mt-8" onclick="Patient.saveSchedule()">✔ Add to My Dinacharya</button>
+      </div>
+    </section>
+
+    <!-- 3. Ritucharya Weather -->
+    <section id="view-ritucharya" class="view hidden">
+      <h2 class="view-title">🌦 Ritucharya — Seasonal & Weather Adaptation</h2>
+      <div class="grid-2">
+        <div class="card weather-main-card" id="weatherMainCard">
+          <div id="weatherDisplay"></div>
+          <div class="mt-16">
+            <label class="form-label">Simulate Weather Condition</label>
+            <div class="weather-sim-btns">
+              <button class="btn btn-outline" onclick="Patient.setWeather('sunny')">☀️ Hot & Sunny</button>
+              <button class="btn btn-outline" onclick="Patient.setWeather('rain')">🌧️ Heavy Rain</button>
+              <button class="btn btn-outline" onclick="Patient.setWeather('cold')">❄️ Cold Snap</button>
+              <button class="btn btn-outline" onclick="Patient.setWeather('humid')">🌫️ Humid</button>
+            </div>
+          </div>
+        </div>
+        <div class="card" id="seasonCard">
+          <div id="seasonContent"></div>
+        </div>
+      </div>
+      <div class="grid-2 mt-16">
+        <div class="card">
+          <h3>✅ Recommended Today</h3>
+          <div id="ritDietRec" class="tag-list"></div>
+        </div>
+        <div class="card">
+          <h3>🚫 Avoid Today</h3>
+          <div id="ritDietAvoid" class="tag-list avoid"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Abhyanga Camera Guide -->
+    <section id="view-abhyanga" class="view hidden">
+      <h2 class="view-title">💆 Home Massage Guide — Abhyanga</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h3>Camera Overlay Guide</h3>
+          <div class="camera-container" id="abhyangaCam">
+            <video id="abhyangaVideo" autoplay playsinline></video>
+            <canvas id="abhyangaCanvas"></canvas>
+            <div class="cam-overlay-info" id="camOverlayInfo">Press Start to activate camera guide</div>
+          </div>
+          <div class="cam-controls">
+            <button class="btn btn-primary" onclick="Patient.startAbhyangaCam()">📷 Start Camera</button>
+            <button class="btn btn-danger" onclick="Patient.stopAbhyangaCam()">⏹ Stop</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Stroke Sequence Guide</h3>
+          <div id="strokeGuide" class="stroke-guide"></div>
+          <div class="posture-checker mt-16">
+            <h4>Posture Feedback</h4>
+            <div id="postureStatus" class="posture-status good">✅ Posture looks aligned — continue</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Digital Health ID & Privacy -->
+    <section id="view-healthid" class="view hidden">
+      <h2 class="view-title">🪪 Digital Health ID & Privacy</h2>
+      <div class="grid-2">
+        <div class="card health-id-card" id="healthIdCard"></div>
+        <div class="card">
+          <h3>🛡 Privacy Controls</h3>
+          <p class="muted mb-12">Managed by AI Clinical Guardian — control what your doctor sees</p>
+          <div id="privacyControls" class="privacy-controls"></div>
+          <button class="btn btn-success mt-16" onclick="Patient.savePrivacy()">💾 Save Privacy Settings</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. AyurCare AI Chat -->
+    <section id="view-chat" class="view hidden">
+      <h2 class="view-title">💬 AyurCare AI Chat</h2>
+      <div class="chat-container">
+        <div class="chat-messages" id="chatMessages">
+          <div class="chat-msg bot">
+            <span class="chat-avatar">🌿</span>
+            <div class="chat-bubble">Namaste! 🙏 I'm AyurCare AI, your 24/7 Ayurvedic wellness assistant. Ask me anything about diet, medications, or wellness.</div>
+          </div>
+        </div>
+        <div class="chat-input-bar">
+          <input type="text" id="chatInput" placeholder="Type your question... (e.g. I have a headache)" onkeydown="if(event.key==='Enter') Patient.sendChat()" />
+          <button class="btn btn-primary" onclick="Patient.sendChat()">Send ➤</button>
+          <button class="btn btn-danger" onclick="Patient.escalateEmergency()">🚨 Emergency</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════ DOCTOR PORTAL VIEWS ══════════ -->
+
+    <!-- 7. Clinical Hub -->
+    <section id="view-clinical" class="view hidden">
+      <h2 class="view-title">🏥 Clinical Hub & Prescription Designer</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h3>My Patients</h3>
+          <div id="doctorPatientList" class="patient-list"></div>
+        </div>
+        <div class="card">
+          <h3>Design Prescription</h3>
+          <div class="form-group">
+            <label class="form-label">Select Patient</label>
+            <select id="rxPatient" class="form-select">
+              <option value="">-- Select --</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Add Medicine</label>
+            <select id="rxMedicine" class="form-select">
+              <option value="">-- Select Medicine --</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Dosage Instructions</label>
+            <input type="text" id="rxDosage" class="form-input" placeholder="e.g. 5g with warm milk at bedtime" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Routine Type</label>
+            <select id="rxRoutine" class="form-select">
+              <option value="daily">Daily Routine</option>
+              <option value="morning">Morning Only</option>
+              <option value="evening">Evening Only</option>
+              <option value="asneeded">As Needed</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="Doctor.addPrescription()">📤 Send to Patient Dashboard</button>
+          <div id="rxSuccess" class="alert-success hidden mt-8">✅ Prescription sent successfully!</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. Vega Bout Monitor -->
+    <section id="view-vegamonitor" class="view hidden">
+      <h2 class="view-title">📊 Vega Bout Elimination Monitor</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h3>Live Ledger</h3>
+          <div class="form-group">
+            <label class="form-label">Select Patient</label>
+            <select id="vegaPatient" class="form-select" onchange="Doctor.loadVegaLedger()">
+              <option value="">-- Select Patient --</option>
+            </select>
+          </div>
+          <div id="vegaLedger" class="vega-ledger"></div>
+        </div>
+        <div class="card">
+          <h3>Log New Bout</h3>
+          <div class="form-group">
+            <label class="form-label">Volume</label>
+            <select id="boutVolume" class="form-select">
+              <option value="trace">Trace</option>
+              <option value="small">Small</option>
+              <option value="moderate" selected>Moderate</option>
+              <option value="large">Large</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Color</label>
+            <select id="boutColor" class="form-select">
+              <option value="yellow">Yellow</option>
+              <option value="yellow-green">Yellow-Green</option>
+              <option value="dark-green">Dark Green</option>
+              <option value="brown">Brown</option>
+              <option value="clear">Clear/Watery</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Consistency</label>
+            <select id="boutConsistency" class="form-select">
+              <option value="formed">Formed</option>
+              <option value="semi-formed">Semi-Formed</option>
+              <option value="semi-liquid">Semi-Liquid</option>
+              <option value="liquid">Liquid</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notes</label>
+            <input type="text" id="boutNotes" class="form-input" placeholder="Observation notes..." />
+          </div>
+          <button class="btn btn-primary" onclick="Doctor.logBout()">➕ Log Bout</button>
+          <div id="boutOutcome" class="mt-12"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. Patient Lookup -->
+    <section id="view-patientlookup" class="view hidden">
+      <h2 class="view-title">🔍 Patient Lookup</h2>
+      <div class="card">
+        <div class="search-bar">
+          <input type="text" id="patientSearch" class="form-input" placeholder="Search by name or ID..." oninput="Doctor.searchPatients()" />
+        </div>
+        <div id="patientSearchResults" class="patient-search-results mt-12"></div>
+      </div>
+      <div id="patientRecord" class="mt-16 hidden"></div>
+    </section>
+
+    <!-- ══════════ STUDENT PORTAL VIEWS ══════════ -->
+
+    <!-- 10. Netra Tarpana Simulator -->
+    <section id="view-netra" class="view hidden">
+      <h2 class="view-title">👁 Netra Tarpana Leakage Simulator</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h3>Eye Diagram — Place Dough Walls</h3>
+          <div class="netra-diagram-wrap">
+            <canvas id="netraCanvas" width="400" height="300"></canvas>
+          </div>
+          <div class="netra-controls">
+            <label class="form-label">Dough Thickness: <span id="doughThickVal">2.5</span> cm</label>
+            <input type="range" min="1" max="5" step="0.1" value="2.5" id="doughThick" oninput="Student.updateNetra()" />
+            <label class="form-label">Oil Temperature: <span id="oilTempVal">37</span> °C</label>
+            <input type="range" min="30" max="45" step="1" value="37" id="oilTemp" oninput="Student.updateNetra()" />
+          </div>
+          <div id="netraFeedback" class="netra-feedback mt-12"></div>
+        </div>
+        <div class="card">
+          <h3>Node Risk Assessment</h3>
+          <div id="nodeRiskTable" class="node-risk-table"></div>
+          <div class="mt-16">
+            <h4>Procedure Checklist</h4>
+            <div id="netraChecklist" class="checklist"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 11. Abhyanga Pose Auditor -->
+    <section id="view-poseaudit" class="view hidden">
+      <h2 class="view-title">🧪 Abhyanga Pose-Estimation Auditor</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h3>Live Therapist Feed</h3>
+          <div class="camera-container">
+            <video id="auditVideo" autoplay playsinline></video>
+            <canvas id="auditCanvas"></canvas>
+          </div>
+          <div class="cam-controls mt-8">
+            <button class="btn btn-primary" onclick="Student.startAuditCam()">📷 Start Audit Feed</button>
+            <button class="btn btn-danger" onclick="Student.stopAuditCam()">⏹ Stop</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Audit Metrics</h3>
+          <div id="auditMetrics" class="audit-metrics"></div>
+          <div id="auditFeedback" class="audit-feedback mt-12"></div>
+          <div class="mt-16">
+            <h4>Stroke Speed Timer</h4>
+            <div class="stroke-timer">
+              <div class="timer-display" id="strokeTimer">0.0s</div>
+              <div class="timer-btns">
+                <button class="btn btn-outline" onclick="Student.startStrokeTimer()">Start</button>
+                <button class="btn btn-outline" onclick="Student.stopStrokeTimer()">Stop</button>
+                <button class="btn btn-outline" onclick="Student.resetStrokeTimer()">Reset</button>
+              </div>
+            </div>
+            <div id="strokeFeedback" class="mt-8"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 12. Vega Bout Classifier -->
+    <section id="view-vegaclass" class="view hidden">
+      <h2 class="view-title">🧬 Vega Bout Classifier</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h3>Classify Elimination Therapy</h3>
+          <div class="form-group">
+            <label class="form-label">Therapy Type</label>
+            <select id="classTherapy" class="form-select">
+              <option value="Virechana">Virechana (Purgation)</option>
+              <option value="Vamana">Vamana (Emesis)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Total Bouts</label>
+            <input type="number" id="classBouts" class="form-input" min="1" max="30" placeholder="e.g. 7" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Volume (overall)</label>
+            <select id="classVolume" class="form-select">
+              <option value="small">Small — scanty</option>
+              <option value="moderate">Moderate — adequate</option>
+              <option value="large">Large — excessive</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Final Color</label>
+            <select id="classColor" class="form-select">
+              <option value="yellow">Yellow</option>
+              <option value="yellow-green">Yellow-Green</option>
+              <option value="clear">Clear/Watery</option>
+              <option value="dark">Dark/Blackish</option>
+              <option value="blood">Blood-tinged</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Patient Feels</label>
+            <select id="classFeeling" class="form-select">
+              <option value="light">Light and Clear</option>
+              <option value="weak">Weak / Fatigued</option>
+              <option value="normal">Normal</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="Student.classifyBout()">🔬 Classify Now</button>
+        </div>
+        <div class="card">
+          <h3>Classification Result</h3>
+          <div id="classResult" class="class-result">
+            <p class="muted">Fill in the form and click Classify to see the result.</p>
+          </div>
+          <div class="mt-16">
+            <h4>Classification Reference Guide</h4>
+            <div id="classGuide" class="class-guide"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 13. Viruddha Checker -->
+    <section id="view-viruddha" class="view hidden">
+      <h2 class="view-title">⚠️ Viruddha — Incompatible Food Checker</h2>
+      <div class="card">
+        <h3>Search Combinations</h3>
+        <div class="viruddha-search">
+          <input type="text" id="viruddhaSearch" class="form-input" placeholder="Search for Milk, Fish, Honey, Ghee..." oninput="Student.searchViruddha()" />
+        </div>
+        <div id="viruddhaResults" class="viruddha-results mt-16"></div>
+      </div>
+      <div class="card mt-16">
+        <h3>Complete Viruddha Database</h3>
+        <div id="viruddhaAll" class="viruddha-all"></div>
+      </div>
+    </section>
+
+    <!-- ══════════ SHARED VIEWS ══════════ -->
+
+    <!-- 14. Smartwatch Reminder Hub -->
+    <section id="view-watch" class="view hidden">
+      <h2 class="view-title">⌚ Smartwatch Reminder Hub</h2>
+
+      <!-- Connection Panel -->
+      <div class="watch-hero-row">
+        <div class="card watch-connect-card" id="watchConnectCard">
+          <div class="watch-3d-wrap">
+            <div class="watch-3d" id="watch3d">
+              <div class="watch-face" id="watchFace">
+                <div class="watch-time" id="watchFaceTime">--:--</div>
+                <div class="watch-next-rem" id="watchNextRem">No reminders</div>
+                <div class="watch-pulse" id="watchPulse"></div>
+              </div>
+              <div class="watch-band-top"></div>
+              <div class="watch-band-bottom"></div>
+              <div class="watch-btn-side"></div>
+            </div>
+          </div>
+          <div class="watch-connect-info">
+            <h3>Pair Your Smartwatch</h3>
+            <div class="watch-status-row">
+              <span class="watch-status-dot" id="watchStatusDot"></span>
+              <span id="watchStatusText">Not connected</span>
+            </div>
+            <p class="muted mt-8">Uses Web Bluetooth to pair with WearOS, Samsung Galaxy Watch, Fitbit, or any BLE-enabled device.</p>
+            <div class="watch-btn-row mt-16">
+              <button class="btn btn-primary" id="btnPairWatch" onclick="WatchReminder.pairDevice()">🔵 Pair Watch via Bluetooth</button>
+              <button class="btn btn-outline" onclick="WatchReminder.simulatePair()">🔌 Simulate Pairing</button>
+            </div>
+            <div id="watchPairLog" class="watch-pair-log mt-12"></div>
+          </div>
+        </div>
+
+        <div class="card watch-stats-card">
+          <h3>📊 Reminder Stats</h3>
+          <div class="watch-stats-grid" id="watchStatsGrid">
+            <div class="wstat"><div class="wstat-val" id="wstat-total">0</div><div class="wstat-label">Total Reminders</div></div>
+            <div class="wstat"><div class="wstat-val" id="wstat-sent">0</div><div class="wstat-label">Sent to Watch</div></div>
+            <div class="wstat"><div class="wstat-val" id="wstat-pending">0</div><div class="wstat-label">Pending Today</div></div>
+            <div class="wstat"><div class="wstat-val" id="wstat-taken">0</div><div class="wstat-label">Taken ✅</div></div>
+          </div>
+          <div class="compliance-bar-wrap mt-16">
+            <div class="compliance-label-row">
+              <span>Today's Compliance</span>
+              <span id="compliancePct">0%</span>
+            </div>
+            <div class="compliance-track"><div class="compliance-fill" id="complianceFill" style="width:0%"></div></div>
+          </div>
+          <div class="mt-16">
+            <h4>Weekly Streak</h4>
+            <div class="streak-row" id="streakRow"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add Reminder -->
+      <div class="grid-2 mt-16">
+        <div class="card">
+          <h3>➕ Add New Reminder</h3>
+          <div class="form-group">
+            <label class="form-label">Medicine / Activity</label>
+            <select id="remMed" class="form-select">
+              <option value="">-- Select from Prescription --</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Custom Label (optional)</label>
+            <input type="text" id="remLabel" class="form-input" placeholder="e.g. Ashwagandha Churna morning dose" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Time</label>
+            <input type="time" id="remTime" class="form-input" value="08:00" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Repeat</label>
+            <select id="remRepeat" class="form-select">
+              <option value="daily">Every Day</option>
+              <option value="weekdays">Weekdays Only</option>
+              <option value="weekend">Weekends Only</option>
+              <option value="once">Once</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Alert Type</label>
+            <div class="alert-type-row">
+              <label class="alert-type-opt"><input type="checkbox" id="alertBrowser" checked /> 🔔 Browser</label>
+              <label class="alert-type-opt"><input type="checkbox" id="alertWatch" checked /> ⌚ Watch Vibration</label>
+              <label class="alert-type-opt"><input type="checkbox" id="alertSound" checked /> 🔊 Sound</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Priority</label>
+            <select id="remPriority" class="form-select">
+              <option value="high">🔴 High (Critical Medication)</option>
+              <option value="medium" selected>🟡 Medium (Regular Dose)</option>
+              <option value="low">🟢 Low (Lifestyle Task)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notes for Watch Display</label>
+            <input type="text" id="remNote" class="form-input" placeholder="e.g. Take with warm milk" />
+          </div>
+          <button class="btn btn-primary" onclick="WatchReminder.addReminder()">⌚ Save & Send to Watch</button>
+        </div>
+
+        <div class="card">
+          <h3>📋 Import from Doctor's Prescription</h3>
+          <p class="muted mb-12">Auto-generate reminders from your active prescriptions set by Dr. Meera Nair.</p>
+          <div id="rxImportList" class="rx-import-list"></div>
+          <button class="btn btn-success mt-12" onclick="WatchReminder.importAllPrescriptions()">📥 Import All to Watch</button>
+          <hr class="divider mt-16" />
+          <h3 class="mt-16">🔔 Browser Notification Test</h3>
+          <p class="muted mb-12">Grant notification permission to receive alerts even when tab is in background.</p>
+          <div id="notifPermStatus" class="mt-8"></div>
+          <button class="btn btn-outline mt-8" onclick="WatchReminder.requestNotifPermission()">🔔 Enable Browser Notifications</button>
+          <button class="btn btn-outline mt-8" onclick="WatchReminder.testNotification()">🧪 Send Test Notification</button>
+        </div>
+      </div>
+
+      <!-- Reminder Timeline -->
+      <div class="card mt-16">
+        <div class="rem-header-row">
+          <h3>📅 Today's Reminder Timeline</h3>
+          <div class="rem-filter-row">
+            <button class="rem-filter active" onclick="WatchReminder.filterReminders('all', this)">All</button>
+            <button class="rem-filter" onclick="WatchReminder.filterReminders('pending', this)">⏳ Pending</button>
+            <button class="rem-filter" onclick="WatchReminder.filterReminders('taken', this)">✅ Taken</button>
+            <button class="rem-filter" onclick="WatchReminder.filterReminders('missed', this)">❌ Missed</button>
+          </div>
+        </div>
+        <div id="reminderTimeline" class="reminder-timeline mt-16"></div>
+      </div>
+
+      <!-- Watch Preview Screen -->
+      <div class="card mt-16">
+        <h3>📱 Watch Notification Preview</h3>
+        <p class="muted mb-12">See exactly what your watch will display when a reminder fires.</p>
+        <div class="watch-preview-wrap">
+          <div class="watch-preview-device" id="watchPreviewDevice">
+            <div class="wp-screen">
+              <div class="wp-time" id="wpTime">--:--</div>
+              <div class="wp-app">AyurDash 🌿</div>
+              <div class="wp-title" id="wpTitle">Time for your medicine!</div>
+              <div class="wp-body" id="wpBody">Ashwagandha Churna<br/>5g with warm milk</div>
+              <div class="wp-actions">
+                <div class="wp-btn wp-btn-ok">✓ Taken</div>
+                <div class="wp-btn wp-btn-snooze">⏰ 10min</div>
+              </div>
+            </div>
+            <div class="wp-crown"></div>
+            <div class="wp-side-btn"></div>
+          </div>
+          <div class="watch-preview-info">
+            <h4>Notification Payload</h4>
+            <div id="watchPayloadPreview" class="payload-preview"></div>
+            <div class="mt-12">
+              <button class="btn btn-outline" onclick="WatchReminder.previewNextReminder()">👁 Preview Next Reminder</button>
+              <button class="btn btn-primary mt-8" onclick="WatchReminder.sendTestToWatch()">📤 Send Test to Watch</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Medicines Directory -->
+    <section id="view-medicines" class="view hidden">
+      <h2 class="view-title">💊 Medicines Directory</h2>
+      <div class="card">
+        <input type="text" id="medSearch" class="form-input" placeholder="Search medicines..." oninput="Shared.filterMedicines()" />
+      </div>
+      <div id="medicineGrid" class="medicine-grid mt-16"></div>
+    </section>
+
+  </main>
+</div>
+
+<!-- TOAST NOTIFICATION -->
+<div id="toast" class="toast hidden"></div>
+
+<!-- MODAL -->
+<div id="modal" class="modal-overlay hidden" onclick="App.closeModal()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="App.closeModal()">✕</button>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<script src="database.js"></script>
+<script src="app.js"></script>
+<script src="watch.js"></script>
+</body>
+</html>

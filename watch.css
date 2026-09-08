@@ -1,0 +1,422 @@
+/* ============================================================
+   AyurDash — Smartwatch Reminder Hub Stylesheet
+   watch.css
+   ============================================================ */
+
+/* ── TOPBAR WATCH BUTTON ────────────────────────────────────── */
+.watch-topbar-btn {
+  position: relative;
+  background: none;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 1.1rem;
+  color: var(--teal);
+  cursor: pointer;
+  transition: all 0.22s ease;
+  display: flex; align-items: center; gap: 4px;
+}
+.watch-topbar-btn:hover {
+  background: var(--teal-pale);
+  border-color: var(--teal-light);
+}
+.watch-icon-anim { font-size: 1.15rem; }
+.watch-badge {
+  position: absolute; top: -6px; right: -6px;
+  background: #dc3545; color: white;
+  font-size: 0.65rem; font-weight: 800;
+  min-width: 18px; height: 18px; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 3px;
+  border: 2px solid var(--white);
+  animation: badgePop 0.3s ease;
+}
+@keyframes badgePop { from { transform: scale(0); } to { transform: scale(1); } }
+
+/* ── HERO ROW ───────────────────────────────────────────────── */
+.watch-hero-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+@media (max-width: 900px) { .watch-hero-row { grid-template-columns: 1fr; } }
+
+/* ── WATCH 3D MODEL ─────────────────────────────────────────── */
+.watch-connect-card {
+  display: flex;
+  gap: 28px;
+  align-items: flex-start;
+}
+@media (max-width: 700px) { .watch-connect-card { flex-direction: column; align-items: center; } }
+
+.watch-3d-wrap {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+}
+
+.watch-3d {
+  position: relative;
+  width: 100px;
+  height: 120px;
+  filter: drop-shadow(0 8px 20px rgba(0,0,0,0.3));
+  transition: transform 0.5s ease;
+}
+.watch-3d:hover { transform: rotate(-5deg) scale(1.05); }
+.watch-3d.connected { animation: watchConnected 1s ease; }
+@keyframes watchConnected {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.12) rotate(5deg); }
+  60%  { transform: scale(0.95) rotate(-3deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+
+.watch-band-top, .watch-band-bottom {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  width: 30px; background: linear-gradient(180deg, #1a1a1a 0%, #2d2d2d 100%);
+  border-radius: 4px;
+}
+.watch-band-top    { top: -28px; height: 32px; }
+.watch-band-bottom { bottom: -28px; height: 32px; }
+
+.watch-face {
+  width: 100px; height: 120px;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border-radius: 22px;
+  border: 3px solid #2d2d2d;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.5), 0 0 0 1px #444;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 4px; overflow: hidden;
+  position: relative;
+  transition: all 0.3s ease;
+}
+.watch-face.active {
+  background: linear-gradient(135deg, #0d2b1a 0%, #1b4965 100%);
+  box-shadow: inset 0 0 30px rgba(82,183,136,0.2), 0 0 15px rgba(82,183,136,0.3);
+}
+.watch-face.notifying {
+  animation: watchBlink 0.5s ease 4;
+  box-shadow: 0 0 20px rgba(224,123,35,0.7), inset 0 0 20px rgba(224,123,35,0.2);
+}
+.watch-face.confirmed {
+  box-shadow: 0 0 20px rgba(45,106,79,0.8);
+}
+@keyframes watchBlink {
+  0%, 100% { box-shadow: inset 0 0 30px rgba(82,183,136,0.2), 0 0 15px rgba(82,183,136,0.3); }
+  50%       { box-shadow: 0 0 25px rgba(224,123,35,0.9), inset 0 0 20px rgba(224,123,35,0.3); }
+}
+
+.watch-btn-side {
+  position: absolute; right: -5px; top: 36px;
+  width: 5px; height: 18px;
+  background: #444; border-radius: 0 3px 3px 0;
+}
+
+.watch-time {
+  font-size: 1.3rem; font-weight: 800;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+.watch-next-rem {
+  font-size: 0.42rem; color: rgba(255,255,255,0.7);
+  text-align: center; padding: 0 6px;
+  line-height: 1.3; max-width: 88px;
+}
+.watch-pulse {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #2d6a4f;
+  animation: pulse-dot 2s ease infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(82,183,136,0.7); }
+  50%       { transform: scale(1.3); box-shadow: 0 0 0 6px rgba(82,183,136,0); }
+}
+.watch-face.notifying .watch-pulse { background: var(--saffron); animation-duration: 0.4s; }
+
+/* ── WATCH CONNECT INFO ─────────────────────────────────────── */
+.watch-connect-info { flex: 1; }
+.watch-status-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-weight: 600; font-size: 0.875rem; }
+
+.watch-status-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #ccc; flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+.watch-status-dot.scanning     { background: var(--saffron); animation: pulse-dot 0.8s infinite; }
+.watch-status-dot.connected    { background: var(--green); box-shadow: 0 0 8px rgba(45,106,79,0.6); }
+.watch-status-dot.disconnected { background: #aaa; }
+.watch-status-dot.failed       { background: var(--red); }
+
+.watch-btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.watch-pair-log {
+  max-height: 120px; overflow-y: auto;
+  font-size: 0.8rem; padding: 6px;
+  background: #f7f8fa; border-radius: 7px;
+  border: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 3px;
+}
+.pair-log-line { padding: 2px 4px; border-radius: 4px; }
+.pair-log-line.info    { color: var(--teal); }
+.pair-log-line.success { color: var(--green); background: #f0fdf4; }
+.pair-log-line.warn    { color: #92400e; background: var(--yellow-pale); }
+.pair-log-line.error   { color: var(--red); background: var(--red-pale); }
+
+/* ── WATCH STATS CARD ───────────────────────────────────────── */
+.watch-stats-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.wstat {
+  background: var(--cream); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 10px; text-align: center;
+}
+.wstat-val {
+  font-size: 2rem; font-weight: 800; color: var(--teal);
+  line-height: 1;
+}
+.wstat-label { font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; }
+
+.compliance-bar-wrap { }
+.compliance-label-row { display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; }
+.compliance-track { height: 12px; background: var(--border); border-radius: 6px; overflow: hidden; }
+.compliance-fill { height: 100%; border-radius: 6px; transition: width 0.8s ease, background 0.5s; }
+
+/* ── STREAK ROW ─────────────────────────────────────────────── */
+.streak-row { display: flex; gap: 6px; justify-content: space-between; flex-wrap: wrap; }
+.streak-day { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.streak-circle {
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 2px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.85rem;
+  background: var(--cream);
+  transition: all 0.3s;
+}
+.streak-day.done .streak-circle   { border-color: var(--green); background: #d1fae5; }
+.streak-day.today .streak-circle  { border-color: var(--saffron); background: var(--saffron-pale); font-size: 0.7rem; }
+.streak-day.future .streak-circle { opacity: 0.3; }
+.streak-day-label { font-size: 0.67rem; color: var(--text-muted); font-weight: 600; }
+.streak-day.today .streak-day-label { color: var(--saffron); }
+
+/* ── ALERT TYPE ROW ─────────────────────────────────────────── */
+.alert-type-row { display: flex; gap: 14px; flex-wrap: wrap; }
+.alert-type-opt {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 0.875rem; cursor: pointer;
+  user-select: none;
+}
+.alert-type-opt input[type=checkbox] { accent-color: var(--green); width: 16px; height: 16px; }
+
+/* ── PRESCRIPTION IMPORT LIST ───────────────────────────────── */
+.rx-import-list { display: flex; flex-direction: column; gap: 10px; }
+.rx-import-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 9px;
+  border: 1.5px solid var(--border); background: var(--cream);
+}
+.rx-import-icon {
+  width: 36px; height: 36px; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; flex-shrink: 0;
+}
+.rx-import-icon.high   { background: var(--red-pale); }
+.rx-import-icon.medium { background: var(--yellow-pale); }
+.rx-import-icon.low    { background: #d1fae5; }
+.rx-import-info { flex: 1; }
+.rx-import-name { font-weight: 700; font-size: 0.9rem; }
+.rx-import-meta { font-size: 0.78rem; color: var(--text-muted); }
+
+.priority-badge {
+  padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 800;
+  text-transform: uppercase;
+}
+.priority-badge.high   { background: var(--red-pale);    color: var(--red); }
+.priority-badge.medium { background: var(--yellow-pale); color: #92400e; }
+.priority-badge.low    { background: #d1fae5;             color: var(--green); }
+
+/* ── DIVIDER ────────────────────────────────────────────────── */
+.divider { border: none; border-top: 1px solid var(--border); }
+
+/* ── REMINDER TIMELINE ──────────────────────────────────────── */
+.rem-header-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.rem-filter-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.rem-filter {
+  padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;
+  border: 1.5px solid var(--border); background: var(--cream); color: var(--text-muted);
+  cursor: pointer; transition: all 0.2s;
+}
+.rem-filter.active  { background: var(--teal); color: white; border-color: var(--teal); }
+.rem-filter:hover:not(.active) { border-color: var(--teal); color: var(--teal); }
+
+.reminder-timeline { display: flex; flex-direction: column; gap: 10px; }
+
+.no-reminders {
+  text-align: center; padding: 40px;
+  color: var(--text-muted); font-size: 0.9rem;
+}
+.no-reminders span { font-size: 2.5rem; display: block; margin-bottom: 8px; }
+
+.reminder-item {
+  display: flex; align-items: stretch; gap: 0;
+  border: 1.5px solid var(--border); border-radius: 12px;
+  background: var(--white); overflow: hidden;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow);
+}
+.reminder-item:hover { border-color: var(--teal-light); box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+.reminder-item.pulsing { animation: remPulse 1.5s ease infinite; border-color: var(--saffron); }
+@keyframes remPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(224,123,35,0.4); }
+  50%       { box-shadow: 0 0 0 6px rgba(224,123,35,0); }
+}
+
+.rem-time-col {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 12px 14px; background: var(--cream);
+  border-right: 1px solid var(--border); min-width: 72px;
+}
+.rem-time { font-size: 1rem; font-weight: 800; color: var(--teal); font-variant-numeric: tabular-nums; }
+.rem-repeat { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-top: 2px; }
+
+.rem-prio-line { width: 4px; flex-shrink: 0; }
+
+.rem-body { flex: 1; padding: 12px 14px; display: flex; flex-direction: column; gap: 5px; }
+.rem-label-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rem-label { font-weight: 700; font-size: 0.95rem; color: var(--teal); }
+.rem-source-tag {
+  font-size: 0.7rem; padding: 2px 7px; border-radius: 10px;
+  background: var(--teal-pale); color: var(--teal); font-weight: 600;
+}
+.rem-note { font-size: 0.82rem; color: var(--text-muted); }
+.rem-meta-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 2px; }
+
+.rem-status-badge {
+  font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+}
+.status-pending { background: var(--teal-pale);    color: var(--teal); }
+.status-due     { background: var(--saffron-pale); color: var(--saffron); animation: badgePop 0.5s ease; }
+.status-taken   { background: #d1fae5;              color: var(--green); }
+.status-missed  { background: var(--red-pale);      color: var(--red); }
+
+.rem-watch-badge { font-size: 0.7rem; color: var(--text-muted); }
+.rem-alert-tag   { font-size: 0.85rem; }
+
+.rem-actions {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 8px; border-left: 1px solid var(--border);
+  justify-content: center;
+}
+.rem-btn {
+  width: 30px; height: 30px; border-radius: 7px;
+  font-size: 0.85rem; border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.18s;
+}
+.rem-btn-take   { background: #d1fae5; color: var(--green); }
+.rem-btn-take:hover   { background: var(--green); color: white; }
+.rem-btn-snooze { background: var(--yellow-pale); color: #92400e; }
+.rem-btn-snooze:hover { background: var(--yellow); color: white; }
+.rem-btn-sync   { background: var(--teal-pale); color: var(--teal); }
+.rem-btn-sync:hover   { background: var(--teal); color: white; }
+.rem-btn-del    { background: var(--red-pale); color: var(--red); }
+.rem-btn-del:hover    { background: var(--red); color: white; }
+
+/* ── WATCH NOTIFICATION PREVIEW ─────────────────────────────── */
+.watch-preview-wrap {
+  display: flex; gap: 32px; align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.watch-preview-device {
+  position: relative; flex-shrink: 0;
+  filter: drop-shadow(0 12px 30px rgba(0,0,0,0.35));
+  transition: transform 0.3s ease;
+}
+.watch-preview-device.preview-anim {
+  animation: previewPop 0.6s ease;
+}
+@keyframes previewPop {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.08); }
+  60%  { transform: scale(0.96); }
+  100% { transform: scale(1); }
+}
+
+.wp-screen {
+  width: 160px;
+  background: #0a0a14;
+  border-radius: 28px;
+  border: 4px solid #1a1a1a;
+  padding: 18px 14px 14px;
+  display: flex; flex-direction: column; gap: 6px;
+  box-shadow: inset 0 0 30px rgba(0,0,0,0.6), 0 0 0 1px #333;
+  position: relative; overflow: hidden;
+}
+/* Watch screen glow */
+.wp-screen::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 40%;
+  background: linear-gradient(180deg, rgba(82,183,136,0.1) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+.wp-time {
+  font-size: 1.5rem; font-weight: 800; color: #fff;
+  text-align: center; font-variant-numeric: tabular-nums;
+}
+.wp-app {
+  font-size: 0.55rem; color: var(--green-light);
+  text-align: center; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.wp-title {
+  font-size: 0.72rem; font-weight: 700; color: #fff;
+  text-align: center; margin-top: 4px;
+}
+.wp-body {
+  font-size: 0.6rem; color: rgba(255,255,255,0.75);
+  text-align: center; line-height: 1.4;
+}
+.wp-actions {
+  display: flex; gap: 6px; margin-top: 8px;
+}
+.wp-btn {
+  flex: 1; padding: 5px 0; border-radius: 8px;
+  font-size: 0.55rem; font-weight: 700; text-align: center; cursor: pointer;
+}
+.wp-btn-ok     { background: var(--green); color: white; }
+.wp-btn-snooze { background: #2a2a3a; color: rgba(255,255,255,0.7); }
+
+.wp-crown {
+  position: absolute; right: -7px; top: 40px;
+  width: 7px; height: 22px;
+  background: #1a1a1a; border-radius: 0 4px 4px 0;
+}
+.wp-side-btn {
+  position: absolute; right: -7px; top: 72px;
+  width: 7px; height: 14px;
+  background: #222; border-radius: 0 3px 3px 0;
+}
+
+/* ── PAYLOAD PREVIEW ─────────────────────────────────────────── */
+.watch-preview-info { flex: 1; min-width: 240px; }
+.payload-preview {
+  background: #1e2a1e; border-radius: 10px; padding: 14px;
+  font-family: 'Courier New', monospace; font-size: 0.78rem;
+  border: 1px solid #2d4a2d;
+  display: flex; flex-direction: column; gap: 5px;
+}
+.payload-line { display: flex; gap: 10px; align-items: baseline; }
+.pl-key  { color: var(--green-light); font-weight: 700; min-width: 70px; }
+.pl-val  { color: #e2d9ce; }
+
+/* ── TOAST TYPE VARIANTS ─────────────────────────────────────── */
+.toast.type-success { background: var(--green); }
+.toast.type-warn    { background: var(--saffron); }
+.toast.type-error   { background: var(--red); }
