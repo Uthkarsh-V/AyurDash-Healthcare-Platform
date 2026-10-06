@@ -303,6 +303,7 @@
 .status-due     { background: var(--saffron-pale); color: var(--saffron); animation: badgePop 0.5s ease; }
 .status-taken   { background: #d1fae5;              color: var(--green); }
 .status-missed  { background: var(--red-pale);      color: var(--red); }
+.status-snoozed { background: #ede9fe;              color: #6d28d9; }
 
 .rem-watch-badge { font-size: 0.7rem; color: var(--text-muted); }
 .rem-alert-tag   { font-size: 0.85rem; }

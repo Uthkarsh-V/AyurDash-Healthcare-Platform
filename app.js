@@ -111,6 +111,9 @@ const App = {
         ]},
         { section: 'Reference', items: [
           { id: 'medicines',     icon: '💊', label: 'Medicines Directory' },
+        ]},
+        { section: 'Smart Devices', items: [
+          { id: 'watch',         icon: '⌚', label: 'Smartwatch Reminders' },
         ]}
       ],
       student: [
