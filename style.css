@@ -49,9 +49,10 @@ input, select, textarea { font-family: inherit; }
 .mt-16     { margin-top: 16px; }
 .mb-12     { margin-bottom: 12px; }
 .muted     { color: var(--text-muted); font-size: 0.875rem; }
-.text-green { color: var(--green); }
-.text-saffron { color: var(--saffron); }
-.text-red   { color: var(--red); }
+.text-green  { color: var(--green); }
+.text-teal   { color: var(--teal); }
+.text-saffron{ color: var(--saffron); }
+.text-red    { color: var(--red); }
 
 /* ── GRID ──────────────────────────────────────────────────── */
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }

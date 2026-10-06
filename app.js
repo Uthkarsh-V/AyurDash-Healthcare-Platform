@@ -19,7 +19,15 @@ const App = {
     // Firebase Auth persists session automatically — onAuthStateChanged handles it
     FB.auth.onAuthStateChanged(async user => {
       if (!user) {
-        window.location.replace('auth.html');
+        // Only redirect to auth.html if the loginScreen is already hidden
+        // (meaning user was mid-session and session expired).
+        // If loginScreen is still visible the user hasn't picked a portal yet —
+        // demo buttons will call App.login() directly, no redirect needed.
+        const loginScreen = document.getElementById('loginScreen');
+        const isShowingLogin = loginScreen && !loginScreen.classList.contains('hidden');
+        if (!isShowingLogin) {
+          window.location.replace('auth.html');
+        }
         return;
       }
       // Load profile from Firestore
@@ -187,20 +195,21 @@ const App = {
 
     // Lazy-init views
     const initMap = {
-      dinacharya: () => Patient.initDinacharya(),
-      ritucharya:  () => Patient.initRitucharya(),
-      abhyanga:    () => Patient.initAbhyangaGuide(),
-      healthid:    () => Patient.initHealthId(),
-      chat:        () => Patient.initChat(),
-      clinical:    () => Doctor.initClinical(),
-      vegamonitor: () => Doctor.initVegaMonitor(),
+      dinacharya:    () => Patient.initDinacharya(),
+      scanner:       () => Patient.initScanner(),
+      ritucharya:    () => Patient.initRitucharya(),
+      abhyanga:      () => Patient.initAbhyangaGuide(),
+      healthid:      () => Patient.initHealthId(),
+      chat:          () => Patient.initChat(),
+      clinical:      () => Doctor.initClinical(),
+      vegamonitor:   () => Doctor.initVegaMonitor(),
       patientlookup: () => Doctor.initPatientLookup(),
-      netra:       () => Student.initNetra(),
-      poseaudit:   () => Student.initPoseAudit(),
-      vegaclass:   () => Student.initVegaClass(),
-      viruddha:    () => Student.initViruddha(),
-      medicines:   () => Shared.initMedicines(),
-      watch:       () => WatchReminder.initView()
+      netra:         () => Student.initNetra(),
+      poseaudit:     () => Student.initPoseAudit(),
+      vegaclass:     () => Student.initVegaClass(),
+      viruddha:      () => Student.initViruddha(),
+      medicines:     () => Shared.initMedicines(),
+      watch:         () => WatchReminder.initView()
     };
     if (initMap[viewId]) initMap[viewId]();
   },
@@ -368,6 +377,19 @@ const Patient = {
   },
 
   // ── PRESCRIPTION SCANNER ──────────────────────────────────
+  initScanner() {
+    // Reset scanner view to initial state when navigating to it
+    const preview = document.getElementById('scanPreview');
+    const parsed  = document.getElementById('parsedMeds');
+    const sched   = document.getElementById('scheduleResult');
+    if (preview) { preview.innerHTML = ''; preview.classList.add('hidden'); }
+    if (parsed)  { parsed.innerHTML = '<p class="muted">Upload a prescription to auto-parse medications and schedule them.</p>'; }
+    if (sched)   { sched.classList.add('hidden'); }
+    // Reset file input so re-upload works
+    const fi = document.getElementById('prescriptionFile');
+    if (fi) fi.value = '';
+  },
+
   handleDrop(e) {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
@@ -499,9 +521,9 @@ const Patient = {
         </div>`;
     });
 
-    // Rotate active step every 8 seconds
-    let stepIdx = 0;
+    // Rotate active step every 8 seconds — clear any previous timer first
     clearInterval(this._strokeTimer);
+    let stepIdx = 0;
     this._strokeTimer = setInterval(() => {
       document.querySelectorAll('.stroke-step').forEach((el, i) => {
         el.classList.toggle('active', i === stepIdx % steps.length);
@@ -1065,6 +1087,15 @@ const Student = {
 
   // ── POSE AUDITOR ──────────────────────────────────────────
   initPoseAudit() {
+    // Clear any running audit timer from a previous visit
+    clearInterval(this._auditTimer);
+    // Stop camera if still running from previous visit
+    if (this.auditStream) {
+      this.auditStream.getTracks().forEach(t => t.stop());
+      this.auditStream = null;
+      const v = document.getElementById('auditVideo');
+      if (v) v.srcObject = null;
+    }
     this._buildAuditMetrics();
   },
 
@@ -1107,6 +1138,8 @@ const Student = {
   },
 
   _simulateAuditFeedback() {
+    // Clear existing timer before starting a new one
+    clearInterval(this._auditTimer);
     const feedbacks = [
       { cls: 'good', text: '✅ Excellent posture. Spine neutral, arms parallel. Stroke speed optimal.' },
       { cls: 'good', text: '✅ Good bilateral synchronization. Coverage complete.' },

@@ -7,12 +7,17 @@
   <!-- Session guard: Firebase Auth handles redirect in app.js bootFromSession() -->
   <!-- Quick check for cached session to avoid flash of content -->
   <script>
+    /* Session guard — only redirect if we came here without any session token
+       AND the loginScreen is not visible (i.e. user refreshed mid-session).
+       Demo portal buttons on loginScreen work without any session. */
     (function(){
       const cached = sessionStorage.getItem('ayurdash_role');
       const stored = localStorage.getItem('ayurdash_session');
-      // If nothing cached at all, redirect immediately before Firebase loads
-      // Firebase onAuthStateChanged in app.js will do the authoritative check
-      if (!cached && !stored) { window.location.replace('auth.html'); }
+      // Only redirect if no session at all — loginScreen buttons handle demo mode
+      if (!cached && !stored) {
+        // Don't redirect immediately — let Firebase onAuthStateChanged decide
+        // bootFromSession() in app.js handles the redirect after Firebase resolves
+      }
     })();
   </script>
   <link rel="stylesheet" href="style.css" />

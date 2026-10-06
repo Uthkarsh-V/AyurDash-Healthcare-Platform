@@ -74,8 +74,14 @@ const WatchReminder = {
   // ── LOAD REMINDERS FROM FIRESTORE ─────────────────────────
   _loadRemindersFromStore() {
     const uid = App.currentUser?.id;
-    if (!uid || typeof Store === 'undefined') {
+    // Demo users (P001, D001, S001) and student portal use local defaults — no Firestore
+    const isDemoUser = !uid || uid === 'P001' || uid === 'D001' || uid === 'S001';
+    if (isDemoUser || typeof Store === 'undefined') {
       this._loadDefaultReminders();
+      this._refreshTimeline();
+      this._refreshStats();
+      this._buildStreakRow();
+      this._previewNextOnLoad();
       return;
     }
     Store.getUserReminders(uid).then(docs => {
