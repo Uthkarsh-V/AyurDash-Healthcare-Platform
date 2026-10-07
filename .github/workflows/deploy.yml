@@ -1,0 +1,42 @@
+name: Deploy AyurDash
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  # ── Deploy to Firebase Hosting ───────────────────────────────
+  deploy-firebase:
+    name: Firebase Hosting Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_AYURDASH }}
+          channelId: live
+          projectId: ayurdash
+
+  # ── Deploy to GitHub Pages (mirror) ─────────────────────────
+  deploy-pages:
+    name: GitHub Pages Deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .
+          exclude_assets: ".github,*.md,*.toml,.gitignore,node_modules"

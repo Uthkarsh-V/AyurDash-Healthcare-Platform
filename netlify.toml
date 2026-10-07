@@ -1,0 +1,24 @@
+[build]
+  publish = "."
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Permissions-Policy = "bluetooth=*, camera=*, microphone=()"
+    Cross-Origin-Opener-Policy = "same-origin-allow-popups"
+    X-Frame-Options = "SAMEORIGIN"
+
+[[headers]]
+  for = "/*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+
+[[headers]]
+  for = "/*.css"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+
+[[redirects]]
+  from = "/app"
+  to = "/index.html"
+  status = 200
