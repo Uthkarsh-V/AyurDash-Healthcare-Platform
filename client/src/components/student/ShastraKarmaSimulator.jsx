@@ -16,8 +16,8 @@ export default function ShastraKarmaSimulator() {
   useEffect(() => {
     if (!rendererRef.current && canvasRef.current) {
       const canvas = canvasRef.current;
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
+      canvas.width = 800;
+      canvas.height = 600;
       rendererRef.current = new ShastraKarmaRenderer(canvas);
     }
     

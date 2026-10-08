@@ -79,7 +79,7 @@ export default class MarmaRenderer {
     ctx.fill(); ctx.stroke();
     // Torso
     ctx.beginPath();
-    ctx.roundRect(w*0.35, h*0.25, w*0.3, h*0.35, 20);
+    ctx.rect(w*0.35, h*0.25, w*0.3, h*0.35);
     ctx.fill(); ctx.stroke();
     // Arms
     ctx.beginPath();
