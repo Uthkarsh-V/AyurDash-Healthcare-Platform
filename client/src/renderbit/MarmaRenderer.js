@@ -20,8 +20,8 @@ export default class MarmaRenderer {
     
     this.handleMove = this.handleMove.bind(this);
     this.handleClick = this.handleClick.bind(this);
-    this.canvas.addEventListener('mousemove', this.handleMove);
-    this.canvas.addEventListener('click', this.handleClick);
+    this.canvas.addEventListener('pointermove', this.handleMove);
+    this.canvas.addEventListener('pointerdown', this.handleClick); // Handle tap/click faster on mobile
     
     this.animate = this.animate.bind(this);
     this.animationId = requestAnimationFrame(this.animate);
@@ -126,7 +126,7 @@ export default class MarmaRenderer {
   
   destroy() {
     cancelAnimationFrame(this.animationId);
-    this.canvas.removeEventListener('mousemove', this.handleMove);
-    this.canvas.removeEventListener('click', this.handleClick);
+    this.canvas.removeEventListener('pointermove', this.handleMove);
+    this.canvas.removeEventListener('pointerdown', this.handleClick);
   }
 }

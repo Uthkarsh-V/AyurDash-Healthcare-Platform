@@ -12,10 +12,10 @@ export default class ShastraKarmaRenderer {
     this.handleMove = this.handleMove.bind(this);
     this.handleUp = this.handleUp.bind(this);
     
-    this.canvas.addEventListener('mousedown', this.handleDown);
-    this.canvas.addEventListener('mousemove', this.handleMove);
-    this.canvas.addEventListener('mouseup', this.handleUp);
-    this.canvas.addEventListener('mouseleave', this.handleUp);
+    this.canvas.addEventListener('pointerdown', this.handleDown);
+    this.canvas.addEventListener('pointermove', this.handleMove);
+    this.canvas.addEventListener('pointerup', this.handleUp);
+    this.canvas.addEventListener('pointercancel', this.handleUp);
     
     this.animate = this.animate.bind(this);
     this.animationId = requestAnimationFrame(this.animate);
@@ -152,9 +152,9 @@ export default class ShastraKarmaRenderer {
   
   destroy() {
     cancelAnimationFrame(this.animationId);
-    this.canvas.removeEventListener('mousedown', this.handleDown);
-    this.canvas.removeEventListener('mousemove', this.handleMove);
-    this.canvas.removeEventListener('mouseup', this.handleUp);
-    this.canvas.removeEventListener('mouseleave', this.handleUp);
+    this.canvas.removeEventListener('pointerdown', this.handleDown);
+    this.canvas.removeEventListener('pointermove', this.handleMove);
+    this.canvas.removeEventListener('pointerup', this.handleUp);
+    this.canvas.removeEventListener('pointercancel', this.handleUp);
   }
 }
