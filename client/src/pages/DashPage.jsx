@@ -1,0 +1,74 @@
+// client/src/pages/DashPage.jsx — main app shell
+import { useState, useCallback } from 'react';
+import Sidebar from '../components/layout/Sidebar';
+import Topbar  from '../components/layout/Topbar';
+import Modal   from '../components/layout/Modal';
+import Toast   from '../components/layout/Toast';
+import { useAuth } from '../context/AuthContext';
+
+// Patient views
+import Dinacharya          from '../components/patient/Dinacharya';
+import PrescriptionScanner from '../components/patient/PrescriptionScanner';
+import Ritucharya          from '../components/patient/Ritucharya';
+import AbhyangaGuide       from '../components/patient/AbhyangaGuide';
+import HealthId            from '../components/patient/HealthId';
+import AyurChat            from '../components/patient/AyurChat';
+// Doctor views
+import ClinicalHub   from '../components/doctor/ClinicalHub';
+import VegaMonitor   from '../components/doctor/VegaMonitor';
+import PatientLookup from '../components/doctor/PatientLookup';
+// Student views
+import NetraSimulator  from '../components/student/NetraSimulator';
+import PoseAuditor     from '../components/student/PoseAuditor';
+import VegaClassifier  from '../components/student/VegaClassifier';
+import ViruddhaChecker from '../components/student/ViruddhaChecker';
+// Shared views
+import MedicinesDirectory from '../components/shared/MedicinesDirectory';
+import WatchHub           from '../components/shared/WatchHub';
+
+const VIEW_MAP = {
+  dinacharya:    <Dinacharya />,
+  scanner:       <PrescriptionScanner />,
+  ritucharya:    <Ritucharya />,
+  abhyanga:      <AbhyangaGuide />,
+  healthid:      <HealthId />,
+  chat:          <AyurChat />,
+  clinical:      <ClinicalHub />,
+  vegamonitor:   <VegaMonitor />,
+  patientlookup: <PatientLookup />,
+  netra:         <NetraSimulator />,
+  poseaudit:     <PoseAuditor />,
+  vegaclass:     <VegaClassifier />,
+  viruddha:      <ViruddhaChecker />,
+  medicines:     <MedicinesDirectory />,
+  watch:         <WatchHub />,
+};
+
+const DEFAULT_VIEW = { patient:'dinacharya', doctor:'clinical', student:'netra' };
+
+export default function DashPage() {
+  const { user } = useAuth();
+  const portal = user?.role || 'patient';
+  const [activeView, setActiveView]   = useState(DEFAULT_VIEW[portal] || 'dinacharya');
+  const [modal, setModal]             = useState(null);
+  const [toast, setToast]             = useState(null);
+
+  const showToast = useCallback((msg, type='info') => {
+    setToast({ msg, type, key: Date.now() });
+  }, []);
+
+  const openModal  = useCallback((html) => setModal(html), []);
+  const closeModal = useCallback(() => setModal(null), []);
+
+  return (
+    <div className="main-app">
+      <Sidebar portal={portal} activeView={activeView} onNavigate={setActiveView} />
+      <Topbar  portal={portal} activeView={activeView} onNavigate={setActiveView} />
+      <main className="content-area">
+        {VIEW_MAP[activeView] || <div className="view"><p>View not found</p></div>}
+      </main>
+      {modal && <Modal content={modal} onClose={closeModal} />}
+      {toast && <Toast key={toast.key} msg={toast.msg} type={toast.type} />}
+    </div>
+  );
+}
