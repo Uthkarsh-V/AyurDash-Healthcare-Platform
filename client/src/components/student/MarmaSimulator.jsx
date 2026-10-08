@@ -7,23 +7,21 @@ export default function MarmaSimulator() {
   const [selectedPoint, setSelectedPoint] = useState(null);
   
   useEffect(() => {
-    if (!rendererRef.current && canvasRef.current) {
+    if (canvasRef.current && !rendererRef.current) {
       const canvas = canvasRef.current;
       canvas.width = 800;
       canvas.height = 600;
       rendererRef.current = new MarmaRenderer(canvas);
-    }
-    
-    if (rendererRef.current) {
       rendererRef.current.update({ 
         onSelect: (p) => setSelectedPoint(p) 
       });
     }
-  }, []);
-  
-  useEffect(() => {
+    
     return () => {
-      if (rendererRef.current) rendererRef.current.destroy();
+      if (rendererRef.current) {
+        rendererRef.current.destroy();
+        rendererRef.current = null;
+      }
     };
   }, []);
 

@@ -14,23 +14,27 @@ export default function ShastraKarmaSimulator() {
   const [activeKarma, setActiveKarma] = useState('chedana');
   
   useEffect(() => {
-    if (!rendererRef.current && canvasRef.current) {
+    if (canvasRef.current && !rendererRef.current) {
       const canvas = canvasRef.current;
       canvas.width = 800;
       canvas.height = 600;
       rendererRef.current = new ShastraKarmaRenderer(canvas);
+      rendererRef.current.update({ karma: activeKarma });
     }
     
+    return () => {
+      if (rendererRef.current) {
+        rendererRef.current.destroy();
+        rendererRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (rendererRef.current) {
       rendererRef.current.update({ karma: activeKarma });
     }
   }, [activeKarma]);
-  
-  useEffect(() => {
-    return () => {
-      if (rendererRef.current) rendererRef.current.destroy();
-    };
-  }, []);
 
   return (
     <div className="view" id="view-shastrakarma">
