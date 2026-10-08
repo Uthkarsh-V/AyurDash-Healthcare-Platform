@@ -57,8 +57,15 @@ export default class MarmaRenderer {
   }
   
   handleClick(e) {
-    if (this.hoveredPoint && this.onSelect) {
-      this.onSelect(this.hoveredPoint);
+    const rect = this.canvas.getBoundingClientRect();
+    const scaleX = this.canvas.width / rect.width;
+    const scaleY = this.canvas.height / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+    
+    const hit = this.getHit(x, y);
+    if (hit && this.onSelect) {
+      this.onSelect(hit);
     }
   }
   

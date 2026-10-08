@@ -73,7 +73,7 @@ export default function ShastraKarmaSimulator() {
         <div style={{ flex: '2', background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden' }}>
           <canvas 
             ref={canvasRef} 
-            style={{ width: '100%', height: '500px', display: 'block', cursor: 'crosshair' }}
+            style={{ width: '100%', height: '500px', display: 'block', cursor: 'crosshair', touchAction: 'none' }}
           />
         </div>
       </div>
