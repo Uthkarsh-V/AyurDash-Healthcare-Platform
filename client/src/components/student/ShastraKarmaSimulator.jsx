@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ShastraKarmaRenderer from '../../renderbit/ShastraKarmaRenderer';
+import AiGuider from './AiGuider';
 
 const KARMAS = [
   { id: 'chedana', name: 'Chedana (Excision)', target: 'Pumpkin / Ash Gourd (Pushpaphala)' },
@@ -72,6 +73,16 @@ export default function ShastraKarmaSimulator() {
               {activeKarma === 'vyadhana' && "Click on the red vein target to practice precise puncturing."}
             </p>
           </div>
+          
+          <AiGuider 
+            title="AI Surgical Mentor" 
+            guidelines={
+              activeKarma === 'chedana' ? "Chedana involves excision. Use your pointer to draw a clean, continuous line across the Pushpaphala (Ash Gourd). Focus on maintaining a steady hand and uniform pressure." :
+              activeKarma === 'bhedana' ? "Bhedana is incision and drainage. Tap precisely on the Basti (water bladder) to puncture it. Notice how the internal pressure forces the fluid out. You must be quick and precise." :
+              activeKarma === 'lekhana' ? "Lekhana is scraping. Gently drag your tool repeatedly over the Savyoma Charma (hairy skin) to remove the superficial layers. Do not press too deeply." :
+              "Vyadhana is puncturing. Carefully tap the red Sira (vein). In ancient times, a lotus stalk was used to train this delicate technique. Avoid piercing entirely through the object."
+            } 
+          />
         </div>
         
         <div style={{ flex: '2', background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden' }}>

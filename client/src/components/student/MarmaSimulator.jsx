@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import MarmaRenderer from '../../renderbit/MarmaRenderer';
+import AiGuider from './AiGuider';
 
 export default function MarmaSimulator() {
   const canvasRef = useRef(null);
@@ -56,6 +57,16 @@ export default function MarmaSimulator() {
           ) : (
             <p style={{ color: 'var(--text-muted)' }}>Hover and click on a glowing point on the anatomical map to see detailed information.</p>
           )}
+          
+          <AiGuider 
+            title="AI Anatomy Mentor" 
+            guidelines={
+              !selectedPoint ? "Welcome to the Marma Points Explorer. Hover or tap on any glowing anatomical node on the body to analyze its fatal characteristics and elemental dominance." :
+              selectedPoint.type === 'Sadhya Pranahara' ? `Warning: ${selectedPoint.name} is a Sadhya Pranahara point. It contains high Agni (Fire) elements. Any surgical intervention near this area is highly contraindicated as injury causes immediate death.` :
+              selectedPoint.type === 'Kalantara Pranahara' ? `The ${selectedPoint.name} point is Kalantara Pranahara (Delayed Fatal). It combines Agni (Fire) and Soma (Water). Injury here depletes the body's moisture, leading to gradual death.` :
+              `The ${selectedPoint.name} point requires careful handling. It is classified as ${selectedPoint.type}. Note its exact dimension (${selectedPoint.size} Angula) when planning treatments.`
+            } 
+          />
           
           <div style={{ marginTop: '30px', padding: '15px', background: 'rgba(255, 77, 77, 0.1)', border: '1px solid #FF4D4D', borderRadius: '8px' }}>
             <h4>Legend</h4>
