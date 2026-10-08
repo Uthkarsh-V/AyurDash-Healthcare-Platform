@@ -1,6 +1,6 @@
 exports.up = (knex) =>
   knex.schema.createTable('reminders', (t) => {
-    t.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
+    t.uuid('id').primary().defaultTo(knex.fn.uuid());
     t.uuid('user_id').notNullable().references('id').inTable('users').onDelete('CASCADE');
     t.string('label').notNullable();
     t.text('note');

@@ -1,16 +1,12 @@
-// server/db.js — Knex PostgreSQL connection
+// server/db.js — Knex SQLite connection
 require('dotenv').config();
 
 const knex = require('knex')({
-  client: 'pg',
+  client: 'sqlite3',
   connection: {
-    host:     process.env.DB_HOST     || 'localhost',
-    port:     parseInt(process.env.DB_PORT || '5432'),
-    database: process.env.DB_NAME     || 'ayurdash',
-    user:     process.env.DB_USER     || 'postgres',
-    password: process.env.DB_PASSWORD || 'postgres',
+    filename: './ayurdash.sqlite3'
   },
-  pool: { min: 2, max: 10 },
+  useNullAsDefault: true,
   migrations: { directory: './migrations' },
 });
 

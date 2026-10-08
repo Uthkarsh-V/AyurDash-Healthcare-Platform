@@ -6,7 +6,7 @@ exports.up = (knex) =>
     t.date('dob');
     t.string('prakriti');
     t.string('blood_group');
-    t.specificType('allergies', 'TEXT[]').defaultTo('{}');
+    t.text('allergies').defaultTo('[]');
     t.text('mental_health');
     t.integer('dosha_vata').defaultTo(33);
     t.integer('dosha_pitta').defaultTo(33);

@@ -1,6 +1,6 @@
 exports.up = (knex) =>
   knex.schema.createTable('vega_bouts', (t) => {
-    t.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
+    t.uuid('id').primary().defaultTo(knex.fn.uuid());
     t.uuid('doctor_id').references('id').inTable('users');
     t.uuid('patient_id').references('id').inTable('users');
     t.string('therapy');

@@ -4,9 +4,9 @@ exports.up = (knex) =>
     t.string('name').notNullable();
     t.string('type');
     t.text('sanskrit');
-    t.specificType('benefits', 'TEXT[]').defaultTo('{}');
+    t.text('benefits').defaultTo('[]');
     t.text('dosage');
-    t.specificType('contraindications', 'TEXT[]').defaultTo('{}');
+    t.text('contraindications').defaultTo('[]');
     t.text('dosha_action');
   });
 

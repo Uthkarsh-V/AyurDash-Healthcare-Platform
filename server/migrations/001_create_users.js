@@ -1,6 +1,6 @@
 exports.up = (knex) =>
   knex.schema.createTable('users', (t) => {
-    t.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
+    t.uuid('id').primary().defaultTo(knex.fn.uuid());
     t.string('email').notNullable().unique();
     t.string('password_hash').notNullable();
     t.enu('role', ['patient', 'doctor', 'student']).notNullable();
