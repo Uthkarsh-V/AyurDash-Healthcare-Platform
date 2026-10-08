@@ -29,6 +29,8 @@ const NAV_CONFIG = {
       { id:'poseaudit', icon:'🧪', label:'Abhyanga Pose Auditor' },
       { id:'vegaclass', icon:'🧬', label:'Vega Bout Classifier' },
       { id:'viruddha',  icon:'⚠️', label:'Viruddha Checker' },
+      { id:'shastrakarma', icon:'🔪', label:'Shastra Karma Simulator' },
+      { id:'marmapoints', icon:'🧘', label:'Marma Points Explorer' },
     ]},
     { section:'Reference', items:[{ id:'medicines', icon:'💊', label:'Medicines Directory' }]},
   ],

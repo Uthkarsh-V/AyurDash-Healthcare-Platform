@@ -22,6 +22,8 @@ import NetraSimulator  from '../components/student/NetraSimulator';
 import PoseAuditor     from '../components/student/PoseAuditor';
 import VegaClassifier  from '../components/student/VegaClassifier';
 import ViruddhaChecker from '../components/student/ViruddhaChecker';
+import ShastraKarmaSimulator from '../components/student/ShastraKarmaSimulator';
+import MarmaSimulator from '../components/student/MarmaSimulator';
 // Shared views
 import MedicinesDirectory from '../components/shared/MedicinesDirectory';
 import WatchHub           from '../components/shared/WatchHub';
@@ -40,6 +42,8 @@ const VIEW_MAP = {
   poseaudit:     <PoseAuditor />,
   vegaclass:     <VegaClassifier />,
   viruddha:      <ViruddhaChecker />,
+  shastrakarma:  <ShastraKarmaSimulator />,
+  marmapoints:   <MarmaSimulator />,
   medicines:     <MedicinesDirectory />,
   watch:         <WatchHub />,
 };
