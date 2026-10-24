@@ -580,7 +580,7 @@ export default function ClinicalHub() {
         </div>
 
         {/* Send Reminder Form & Dispatched Reminders Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.8fr', gap: 24 }}>
+        <div className="grid-2" style={{ gap: 20 }}>
           {/* Dispatch Form */}
           <form onSubmit={handleSendReminder} style={{ background: 'var(--cream)', padding: 18, borderRadius: 10, border: '1px solid var(--border)' }}>
             <h4 style={{ margin: '0 0 12px', color: 'var(--teal)', fontSize: '0.98rem' }}>Create New Patient Alert</h4>

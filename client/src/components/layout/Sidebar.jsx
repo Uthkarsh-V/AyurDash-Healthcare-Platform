@@ -37,15 +37,30 @@ const NAV_CONFIG = {
   ],
 };
 
-export default function Sidebar({ portal, activeView, onNavigate }) {
+export default function Sidebar({ portal, activeView, onNavigate, isOpen, onClose }) {
   const { user, logout } = useAuth();
   const role = portal === 'patient' ? 'Patient' : portal === 'doctor' ? 'Physician' : 'Student';
 
+  const handleNav = (id) => {
+    onNavigate(id);
+    if (onClose) onClose();
+  };
+
   return (
-    <aside className="sidebar open" id="sidebar">
-      <div className="sidebar-header">
-        <span className="logo-leaf">🌿</span>
-        <span className="sidebar-brand">AyurDash</span>
+    <aside className={`sidebar ${isOpen ? 'open' : ''}`} id="sidebar">
+      <div className="sidebar-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="logo-leaf">🌿</span>
+          <span className="sidebar-brand">AyurDash</span>
+        </div>
+        <button
+          className="sidebar-close-btn"
+          onClick={onClose}
+          aria-label="Close sidebar navigation"
+          title="Close menu"
+        >
+          ✕
+        </button>
       </div>
       <div className="user-chip">
         <div className="uc-name">{user?.display_name || user?.email}</div>
@@ -56,7 +71,11 @@ export default function Sidebar({ portal, activeView, onNavigate }) {
           <div key={section.section} className="nav-section">
             <div className="nav-section-label">{section.section}</div>
             {section.items.map(item => (
-              <button key={item.id} className={`nav-item${activeView === item.id ? ' active' : ''}`} onClick={() => onNavigate(item.id)}>
+              <button
+                key={item.id}
+                className={`nav-item${activeView === item.id ? ' active' : ''}`}
+                onClick={() => handleNav(item.id)}
+              >
                 <span className="nav-icon">{item.icon}</span>{item.label}
               </button>
             ))}

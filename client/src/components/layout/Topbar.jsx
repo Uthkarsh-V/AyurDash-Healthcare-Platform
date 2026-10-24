@@ -9,7 +9,7 @@ const TITLES = {
   viruddha:'⚠️ Viruddha Checker', medicines:'💊 Medicines Directory', watch:'⌚ Smartwatch Reminder Hub',
 };
 
-export default function Topbar({ activeView, onNavigate }) {
+export default function Topbar({ activeView, onNavigate, onToggleSidebar }) {
   const [date, setDate]       = useState('');
   const [weather, setWeather] = useState('🌤 Loading...');
 
@@ -24,7 +24,18 @@ export default function Topbar({ activeView, onNavigate }) {
 
   return (
     <div className="topbar">
-      <div className="topbar-title">{TITLES[activeView] || 'AyurDash'}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+        <button
+          type="button"
+          className="hamburger-btn"
+          onClick={onToggleSidebar}
+          aria-label="Open Navigation Menu"
+          title="Open Menu"
+        >
+          <span className="hamburger-icon">☰</span>
+        </button>
+        <div className="topbar-title">{TITLES[activeView] || 'AyurDash'}</div>
+      </div>
       <div className="topbar-right">
         <span className="weather-chip">{weather}</span>
         <button className="watch-topbar-btn" onClick={() => onNavigate('watch')} title="Smartwatch Reminders">

@@ -2,6 +2,7 @@
 import { useState, useCallback } from 'react';
 import Sidebar from '../components/layout/Sidebar';
 import Topbar  from '../components/layout/Topbar';
+import MobileBottomNav from '../components/layout/MobileBottomNav';
 import Modal   from '../components/layout/Modal';
 import Toast   from '../components/layout/Toast';
 import { useAuth } from '../context/AuthContext';
@@ -54,6 +55,7 @@ export default function DashPage() {
   const { user } = useAuth();
   const portal = user?.role || 'patient';
   const [activeView, setActiveView]   = useState(DEFAULT_VIEW[portal] || 'dinacharya');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [modal, setModal]             = useState(null);
   const [toast, setToast]             = useState(null);
 
@@ -64,13 +66,47 @@ export default function DashPage() {
   const openModal  = useCallback((html) => setModal(html), []);
   const closeModal = useCallback(() => setModal(null), []);
 
+  const handleNavigate = (view) => {
+    setActiveView(view);
+    setSidebarOpen(false);
+  };
+
   return (
     <div className="main-app">
-      <Sidebar portal={portal} activeView={activeView} onNavigate={setActiveView} />
-      <Topbar  portal={portal} activeView={activeView} onNavigate={setActiveView} />
+      {/* Backdrop overlay for mobile drawer */}
+      <div
+        className={`sidebar-backdrop ${sidebarOpen ? 'active' : ''}`}
+        onClick={() => setSidebarOpen(false)}
+        aria-hidden="true"
+      />
+
+      <Sidebar
+        portal={portal}
+        activeView={activeView}
+        onNavigate={handleNavigate}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
+
+      <Topbar
+        portal={portal}
+        activeView={activeView}
+        onNavigate={handleNavigate}
+        onToggleSidebar={() => setSidebarOpen(prev => !prev)}
+      />
+
       <main className="content-area">
         {VIEW_MAP[activeView] || <div className="view"><p>View not found</p></div>}
       </main>
+
+      {/* Mobile-only Bottom Quick Navigation */}
+      <MobileBottomNav
+        portal={portal}
+        activeView={activeView}
+        onNavigate={handleNavigate}
+        onOpenMenu={() => setSidebarOpen(true)}
+      />
+
       {modal && <Modal content={modal} onClose={closeModal} />}
       {toast && <Toast key={toast.key} msg={toast.msg} type={toast.type} />}
     </div>
