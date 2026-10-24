@@ -33,6 +33,7 @@ const NAV_CONFIG = {
       { id:'marmapoints', icon:'🧘', label:'Marma Points Explorer' },
     ]},
     { section:'Reference', items:[{ id:'medicines', icon:'💊', label:'Medicines Directory' }]},
+    { section:'Smart Devices', items:[{ id:'watch', icon:'⌚', label:'Smartwatch Reminders' }]},
   ],
 };
 
