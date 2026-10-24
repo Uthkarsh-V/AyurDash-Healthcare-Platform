@@ -36,10 +36,11 @@ export const getPatientPrescriptions = (patientId) => http.get(`/prescriptions/p
 export const getDoctorPrescriptions  = (doctorId)  => http.get(`/prescriptions/doctor/${doctorId}`).then(unwrap);
 
 // ── Reminders ─────────────────────────────────────────────────
-export const getReminders      = (userId) => http.get(`/reminders/${userId}`).then(unwrap);
-export const addReminder       = (body)   => http.post('/reminders', body).then(unwrap);
+export const getReminders         = (userId) => http.get(`/reminders/${userId}`).then(unwrap);
+export const getPatientReminders  = (patientId) => http.get(`/reminders/patient/${patientId}`).then(unwrap);
+export const addReminder          = (body)   => http.post('/reminders', body).then(unwrap);
 export const updateReminderStatus = (id, body) => http.patch(`/reminders/${id}/status`, body).then(r => r.data);
-export const deleteReminder    = (id)     => http.delete(`/reminders/${id}`).then(r => r.data);
+export const deleteReminder       = (id)     => http.delete(`/reminders/${id}`).then(r => r.data);
 
 // ── Dinacharya ────────────────────────────────────────────────
 export const getDinacharyaTasks  = (userId, date)              => http.get(`/dinacharya/${userId}/${date}`).then(unwrap);

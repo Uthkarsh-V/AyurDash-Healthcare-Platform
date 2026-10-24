@@ -11,12 +11,34 @@ router.get('/:userId', auth, async (req, res) => {
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
+// GET /api/reminders/patient/:patientId
+router.get('/patient/:patientId', auth, async (req, res) => {
+  try {
+    const rows = await db('reminders').where({ user_id: req.params.patientId }).orderBy('time');
+    return res.json({ success: true, data: rows });
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
+});
+
 // POST /api/reminders
 router.post('/', auth, async (req, res) => {
   try {
-    const { label, note, time, repeat, priority, alert_browser, alert_watch, alert_sound, source, med_id } = req.body;
+    const { label, note, time, repeat, priority, alert_browser, alert_watch, alert_sound, source, med_id, patient_id, user_id } = req.body;
+    const targetUserId = patient_id || user_id || req.user.id;
+    const doctorPrefix = req.user.role === 'doctor' ? `Dr. ${req.user.display_name || 'Physician'}` : 'manual';
     const [row] = await db('reminders')
-      .insert({ user_id: req.user.id, label, note, time, repeat, priority, alert_browser, alert_watch, alert_sound, source, med_id })
+      .insert({
+        user_id: targetUserId,
+        label,
+        note,
+        time,
+        repeat: repeat || 'daily',
+        priority: priority || 'medium',
+        alert_browser: alert_browser !== undefined ? alert_browser : true,
+        alert_watch: alert_watch !== undefined ? alert_watch : true,
+        alert_sound: alert_sound !== undefined ? alert_sound : true,
+        source: source || doctorPrefix,
+        med_id
+      })
       .returning('*');
     return res.json({ success: true, data: row });
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
