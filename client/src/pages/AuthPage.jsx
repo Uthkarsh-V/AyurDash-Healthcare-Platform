@@ -17,7 +17,7 @@ export default function AuthPage() {
   const [studentCode, setStudentCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login, register } = useAuth();
+  const { login, loginAsDemo, register } = useAuth();
   const navigate = useNavigate();
 
   const roleLabels = { patient: { icon:'🧘', label:'Patient', sub:'Personal Health Portal' }, doctor: { icon:'🩺', label:'Physician', sub:'Clinical Hub' }, student: { icon:'📚', label:'Student', sub:'Training Lab' } };
@@ -28,6 +28,11 @@ export default function AuthPage() {
     catch(err) { setError(err.response?.data?.error || 'Login failed'); }
     finally { setLoading(false); }
   }
+
+  const handleQuickDemo = (roleKey) => {
+    loginAsDemo(roleKey);
+    navigate('/');
+  };
 
   async function handleRegister(e) {
     e.preventDefault(); setError(''); setLoading(true);
@@ -59,14 +64,26 @@ export default function AuthPage() {
           <div className="auth-card">
             <div className="auth-card-logo"><span className="logo-leaf">🌿</span><span className="auth-brand-sm">AyurDash</span></div>
             <h2 className="auth-card-title">Welcome</h2>
-            <p className="auth-card-sub">Select your role to continue</p>
+            <p className="auth-card-sub">Select your portal to continue</p>
             <div className="role-grid">
               {['patient','doctor','student'].map(r => (
-                <button key={r} className="role-card" onClick={() => { setRole(r); setScreen('login'); }}>
-                  <span className="role-icon">{roleLabels[r].icon}</span>
-                  <span className="role-name">{roleLabels[r].label}</span>
-                  <span className="role-desc">{roleLabels[r].sub}</span>
-                </button>
+                <div key={r} className="role-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div onClick={() => { setRole(r); setScreen('login'); }} style={{ cursor: 'pointer', flex: 1 }}>
+                    <span className="role-icon">{roleLabels[r].icon}</span>
+                    <span className="role-name">{roleLabels[r].label}</span>
+                    <span className="role-desc">{roleLabels[r].sub}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); handleQuickDemo(r); }}
+                    style={{
+                      marginTop: 10, padding: '6px 12px', background: 'var(--teal)', color: '#fff',
+                      border: 'none', borderRadius: 6, fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer'
+                    }}
+                  >
+                    ⚡ Instant Demo
+                  </button>
+                </div>
               ))}
             </div>
           </div>
@@ -86,6 +103,14 @@ export default function AuthPage() {
             <div className="form-group"><label className="form-label">Password</label><input type="password" className="form-input" value={password} onChange={e=>setPassword(e.target.value)} required /></div>
             {error && <div className="auth-error">{error}</div>}
             <button type="submit" className="btn btn-primary btn-full mt-12" disabled={loading}>{loading ? 'Signing in...' : 'Sign In →'}</button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-full mt-8"
+              onClick={() => handleQuickDemo(role)}
+              style={{ marginTop: 8 }}
+            >
+              ⚡ 1-Click Demo Login as {roleLabels[role]?.label}
+            </button>
           </form>
           <p className="auth-switch-text">Don't have an account? <button className="link-btn" onClick={() => setScreen('signup')}>Create Account</button></p>
         </div>
