@@ -44,6 +44,7 @@ router.get('/:id/full', auth, async (req, res) => {
     const record = {
       id: user.id, display_name: user.display_name, email: user.email, phone: user.phone,
       age: patient.age, gender: patient.gender, prakriti: patient.prakriti, blood_group: patient.blood_group,
+      priority: patient.priority || 'medium',
       dosha: { vata: patient.dosha_vata, pitta: patient.dosha_pitta, kapha: patient.dosha_kapha },
       allergies:     patient.privacy_allergies     ? patient.allergies     : null,
       mental_health: patient.privacy_mental_health ? patient.mental_health : null,
@@ -52,6 +53,15 @@ router.get('/:id/full', auth, async (req, res) => {
       vega_bouts: vegaBouts,
     };
     return res.json({ success: true, data: record });
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
+});
+
+// PATCH /api/patients/:id/priority
+router.patch('/:id/priority', auth, async (req, res) => {
+  try {
+    const { priority } = req.body;
+    await db('patients').where({ user_id: req.params.id }).update({ priority });
+    return res.json({ success: true, priority });
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 

@@ -18,8 +18,20 @@ exports.up = async function (knex) {
   const hash = (pw) => bcrypt.hashSync(pw, 10);
   await knex('users').del();
 
-  const [patientUser] = await knex('users').insert([
+  const [patientUser1] = await knex('users').insert([
     { email: 'arjun@ayurdash.com', password_hash: hash('demo1234'), role: 'patient', display_name: 'Arjun Sharma', phone: '+91-9876543210' },
+  ]).returning('*');
+
+  const [patientUser2] = await knex('users').insert([
+    { email: 'priya@ayurdash.com', password_hash: hash('demo1234'), role: 'patient', display_name: 'Priya Venkatesh', phone: '+91-9123456789' },
+  ]).returning('*');
+
+  const [patientUser3] = await knex('users').insert([
+    { email: 'kavita@ayurdash.com', password_hash: hash('demo1234'), role: 'patient', display_name: 'Kavita Sundaram', phone: '+91-9845012345' },
+  ]).returning('*');
+
+  const [patientUser4] = await knex('users').insert([
+    { email: 'rajesh@ayurdash.com', password_hash: hash('demo1234'), role: 'patient', display_name: 'Rajesh Nair', phone: '+91-9741234567' },
   ]).returning('*');
 
   const [doctorUser] = await knex('users').insert([
@@ -30,25 +42,82 @@ exports.up = async function (knex) {
     { email: 'aditya@ayurdash.com', password_hash: hash('demo1234'), role: 'student', display_name: 'Aditya Rao', phone: '+91-9000000002' },
   ]);
 
-  // ── Demo Patient Profile ───────────────────────────────────
+  // ── Demo Patients with Priority ────────────────────────────
   await knex('patients').del();
-  await knex('patients').insert({
-    user_id: patientUser.id,
-    age: 34,
-    gender: 'Male',
-    dob: '1990-03-15',
-    prakriti: 'Vata-Pitta',
-    blood_group: 'B+',
-    allergies: JSON.stringify(['Milk at night', 'Heavy oils post-sunset']),
-    mental_health: 'Mild anxiety reported during exam seasons. Recommended Shankhapushpi.',
-    dosha_vata: 42,
-    dosha_pitta: 35,
-    dosha_kapha: 23,
-    privacy_allergies: true,
-    privacy_treatments: true,
-    privacy_mental_health: false,
-    privacy_lab_reports: true,
-  });
+  await knex('patients').insert([
+    {
+      user_id: patientUser1.id,
+      age: 34,
+      gender: 'Male',
+      dob: '1990-03-15',
+      prakriti: 'Vata-Pitta',
+      blood_group: 'B+',
+      priority: 'high',
+      allergies: JSON.stringify(['Milk at night', 'Heavy oils post-sunset']),
+      mental_health: 'Mild anxiety reported during exam seasons. Recommended Shankhapushpi.',
+      dosha_vata: 42,
+      dosha_pitta: 35,
+      dosha_kapha: 23,
+      privacy_allergies: true,
+      privacy_treatments: true,
+      privacy_mental_health: false,
+      privacy_lab_reports: true,
+    },
+    {
+      user_id: patientUser2.id,
+      age: 28,
+      gender: 'Female',
+      dob: '1996-07-22',
+      prakriti: 'Kapha-Vata',
+      blood_group: 'O+',
+      priority: 'critical',
+      allergies: JSON.stringify(['Sesame (external heat rash)']),
+      mental_health: 'Post-Virechana monitoring. Severe dehydration risk.',
+      dosha_vata: 30,
+      dosha_pitta: 25,
+      dosha_kapha: 45,
+      privacy_allergies: true,
+      privacy_treatments: true,
+      privacy_mental_health: true,
+      privacy_lab_reports: true,
+    },
+    {
+      user_id: patientUser3.id,
+      age: 42,
+      gender: 'Female',
+      dob: '1982-11-04',
+      prakriti: 'Pitta-Kapha',
+      blood_group: 'A+',
+      priority: 'medium',
+      allergies: JSON.stringify(['Sour citrus']),
+      mental_health: 'Stable. Active shamana therapy for knee joint stiffness.',
+      dosha_vata: 25,
+      dosha_pitta: 45,
+      dosha_kapha: 30,
+      privacy_allergies: true,
+      privacy_treatments: true,
+      privacy_mental_health: true,
+      privacy_lab_reports: true,
+    },
+    {
+      user_id: patientUser4.id,
+      age: 50,
+      gender: 'Male',
+      dob: '1974-05-19',
+      prakriti: 'Sama-Tridosha',
+      blood_group: 'AB+',
+      priority: 'low',
+      allergies: JSON.stringify([]),
+      mental_health: 'Good vitality. Preventive Rasayana regimen.',
+      dosha_vata: 33,
+      dosha_pitta: 34,
+      dosha_kapha: 33,
+      privacy_allergies: true,
+      privacy_treatments: true,
+      privacy_mental_health: true,
+      privacy_lab_reports: true,
+    }
+  ]);
 
   // ── Demo Doctor Profile ────────────────────────────────────
   await knex('doctors').del();
@@ -59,7 +128,7 @@ exports.up = async function (knex) {
     reg_number: 'MCI-2024-0001',
   });
 
-  console.log('✅ Seed complete — medicines, demo patient, doctor, student inserted');
+  console.log('✅ Seed complete — medicines, demo patients with clinical priority, doctor, student inserted');
 };
 
 exports.down = async function (knex) {

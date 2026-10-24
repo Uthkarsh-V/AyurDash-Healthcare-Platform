@@ -18,10 +18,11 @@ export const register = (body)             => http.post('/auth/register',  body)
 export const getMe    = ()                 => http.get('/auth/me').then(unwrap);
 
 // ── Patients ──────────────────────────────────────────────────
-export const getPatient       = (id)           => http.get(`/patients/${id}`).then(unwrap);
-export const updatePatient    = (id, data)     => http.put(`/patients/${id}`, data).then(r => r.data);
-export const updatePrivacy    = (id, privacy)  => http.put(`/patients/${id}/privacy`, privacy).then(r => r.data);
-export const getPatientFull   = (id)           => http.get(`/patients/${id}/full`).then(unwrap);
+export const getPatient            = (id)           => http.get(`/patients/${id}`).then(unwrap);
+export const updatePatient         = (id, data)     => http.put(`/patients/${id}`, data).then(r => r.data);
+export const updatePatientPriority = (id, priority) => http.patch(`/patients/${id}/priority`, { priority }).then(r => r.data);
+export const updatePrivacy         = (id, privacy)  => http.put(`/patients/${id}/privacy`, privacy).then(r => r.data);
+export const getPatientFull        = (id)           => http.get(`/patients/${id}/full`).then(unwrap);
 
 // ── Doctors ───────────────────────────────────────────────────
 export const getDoctorPatients = (doctorId) => http.get(`/doctors/${doctorId}/patients`).then(unwrap);
