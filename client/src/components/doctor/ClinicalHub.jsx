@@ -12,6 +12,8 @@ const QUICK_CARE_TEMPLATES = [
   { label: 'Clinical Follow-up Assessment', note: 'Video / In-clinic review with Dr. Meera', time: '10:00', repeat: 'once', priority: 'high' }
 ];
 
+import { DUMMY_PATIENTS, DUMMY_MEDICINES } from '../../data/ayurdb';
+
 const PRIORITY_LEVELS = [
   { id: 'critical', label: 'Critical', icon: '🚨', bg: '#fee2e2', color: '#991b1b', border: '#f87171' },
   { id: 'high',     label: 'High',     icon: '🔴', bg: '#ffedd5', color: '#9a3412', border: '#fdba74' },
@@ -21,16 +23,16 @@ const PRIORITY_LEVELS = [
 
 export default function ClinicalHub() {
   const { user } = useAuth();
-  const [patients, setPatients] = useState([]);
-  const [medicines, setMedicines] = useState([]);
-  const [selectedPatientId, setSelectedPatientId] = useState('');
+  const [patients, setPatients] = useState(DUMMY_PATIENTS);
+  const [medicines, setMedicines] = useState(DUMMY_MEDICINES);
+  const [selectedPatientId, setSelectedPatientId] = useState(DUMMY_PATIENTS[0]?.id || '');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [sortByPriority, setSortByPriority] = useState(true);
   const [priorityUpdateMsg, setPriorityUpdateMsg] = useState('');
 
   // Prescription Form State
   const [rxForm, setRxForm] = useState({
-    patient_id: '',
+    patient_id: DUMMY_PATIENTS[0]?.id || '',
     medicine_id: '',
     dosage: '',
     routine: 'daily',
@@ -40,7 +42,7 @@ export default function ClinicalHub() {
   const [rxSuccess, setRxSuccess] = useState('');
 
   // Dedicated Patient Reminder Dispatch State
-  const [remPatientId, setRemPatientId] = useState('');
+  const [remPatientId, setRemPatientId] = useState(DUMMY_PATIENTS[0]?.id || '');
   const [remLabel, setRemLabel] = useState('');
   const [remNote, setRemNote] = useState('');
   const [remTime, setRemTime] = useState('08:00');
@@ -53,22 +55,31 @@ export default function ClinicalHub() {
   const [patientReminders, setPatientReminders] = useState([]);
   const [loadingReminders, setLoadingReminders] = useState(false);
 
-  // Load patients and medicines on mount
+  // Load patients and medicines on mount (API with fallback to DUMMY_PATIENTS)
   useEffect(() => {
     if (!user) return;
     api.getDoctorPatients(user.id).then(res => {
-      const list = Array.isArray(res) ? res : [];
+      const list = Array.isArray(res) && res.length > 0 ? res : DUMMY_PATIENTS;
       setPatients(list);
       if (list.length > 0) {
         setSelectedPatientId(list[0].id);
         setRxForm(f => ({ ...f, patient_id: list[0].id }));
         setRemPatientId(list[0].id);
       }
-    }).catch(() => {});
+    }).catch(() => {
+      setPatients(DUMMY_PATIENTS);
+      if (DUMMY_PATIENTS.length > 0) {
+        setSelectedPatientId(DUMMY_PATIENTS[0].id);
+        setRxForm(f => ({ ...f, patient_id: DUMMY_PATIENTS[0].id }));
+        setRemPatientId(DUMMY_PATIENTS[0].id);
+      }
+    });
 
     api.getMedicines().then(res => {
-      setMedicines(Array.isArray(res) ? res : []);
-    }).catch(() => {});
+      setMedicines(Array.isArray(res) && res.length > 0 ? res : DUMMY_MEDICINES);
+    }).catch(() => {
+      setMedicines(DUMMY_MEDICINES);
+    });
   }, [user]);
 
   // Fetch patient reminders when target patient changes
@@ -315,30 +326,44 @@ export default function ClinicalHub() {
                   }}
                 >
                   <div className="patient-avatar" style={{
-                    width: 38, height: 38, borderRadius: '50%',
-                    background: prioMeta.id === 'critical' ? '#dc2626' : prioMeta.id === 'high' ? '#ea580c' : 'var(--teal)',
-                    color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700
+                    width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+                    background: prioMeta.id === 'critical' ? '#dc2626' : prioMeta.id === 'high' ? '#ea580c' : prioMeta.id === 'medium' ? '#d97706' : 'var(--teal)',
+                    color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1rem',
+                    boxShadow: prioMeta.id === 'critical' ? '0 0 0 3px rgba(220,38,38,0.25)' : 'none'
                   }}>
-                    {(p.display_name || 'P')[0]}
+                    {(p.display_name || p.name || 'P')[0]?.toUpperCase()}
                   </div>
 
-                  <div className="patient-info" style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span className="p-name" style={{ fontWeight: 700, color: 'var(--teal)', fontSize: '0.94rem' }}>
-                        {p.display_name || p.email}
+                  <div className="patient-info" style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span className="p-name" style={{ fontWeight: 700, color: 'var(--teal)', fontSize: '0.95rem' }}>
+                        {p.display_name || p.name || p.email}
                       </span>
                       <span style={{
                         fontSize: '0.68rem', fontWeight: 800, padding: '2px 8px', borderRadius: 10,
                         background: prioMeta.bg, color: prioMeta.color, border: `1px solid ${prioMeta.border}`,
-                        textTransform: 'uppercase'
+                        textTransform: 'uppercase', letterSpacing: '0.03em'
                       }}>
                         {prioMeta.icon} {prioMeta.label}
                       </span>
                     </div>
 
                     <div className="p-meta" style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                      {p.age || '34'} yrs • {p.gender || 'Patient'} • Prakriti: <strong>{p.prakriti || 'Vata-Pitta'}</strong>
+                      {p.age} yrs • {p.gender || 'Patient'} • Prakriti: <strong>{p.prakriti || 'Vata-Pitta'}</strong>
                     </div>
+
+                    {p.mental_health && (
+                      <div style={{
+                        fontSize: '0.73rem',
+                        color: prioMeta.id === 'critical' ? '#b91c1c' : prioMeta.id === 'high' ? '#c2410c' : '#4b5563',
+                        marginTop: 3,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}>
+                        🩺 {p.mental_health}
+                      </div>
+                    )}
                   </div>
 
                   <button

@@ -19,19 +19,35 @@ exports.up = async function (knex) {
   await knex('users').del();
 
   const [patientUser1] = await knex('users').insert([
-    { email: 'arjun@ayurdash.com', password_hash: hash('demo1234'), role: 'patient', display_name: 'Arjun Sharma', phone: '+91-9876543210' },
-  ]).returning('*');
-
-  const [patientUser2] = await knex('users').insert([
     { email: 'priya@ayurdash.com', password_hash: hash('demo1234'), role: 'patient', display_name: 'Priya Venkatesh', phone: '+91-9123456789' },
   ]).returning('*');
 
+  const [patientUser2] = await knex('users').insert([
+    { email: 'vikram@ayurdash.com', password_hash: hash('demo1234'), role: 'patient', display_name: 'Vikramaditya Sen', phone: '+91-9888123456' },
+  ]).returning('*');
+
   const [patientUser3] = await knex('users').insert([
-    { email: 'kavita@ayurdash.com', password_hash: hash('demo1234'), role: 'patient', display_name: 'Kavita Sundaram', phone: '+91-9845012345' },
+    { email: 'arjun@ayurdash.com', password_hash: hash('demo1234'), role: 'patient', display_name: 'Arjun Sharma', phone: '+91-9876543210' },
   ]).returning('*');
 
   const [patientUser4] = await knex('users').insert([
+    { email: 'ananya@ayurdash.com', password_hash: hash('demo1234'), role: 'patient', display_name: 'Ananya Deshmukh', phone: '+91-9765432109' },
+  ]).returning('*');
+
+  const [patientUser5] = await knex('users').insert([
+    { email: 'kavita@ayurdash.com', password_hash: hash('demo1234'), role: 'patient', display_name: 'Kavita Sundaram', phone: '+91-9845012345' },
+  ]).returning('*');
+
+  const [patientUser6] = await knex('users').insert([
+    { email: 'rohan@ayurdash.com', password_hash: hash('demo1234'), role: 'patient', display_name: 'Rohan Kulkarni', phone: '+91-9900112233' },
+  ]).returning('*');
+
+  const [patientUser7] = await knex('users').insert([
     { email: 'rajesh@ayurdash.com', password_hash: hash('demo1234'), role: 'patient', display_name: 'Rajesh Nair', phone: '+91-9741234567' },
+  ]).returning('*');
+
+  const [patientUser8] = await knex('users').insert([
+    { email: 'sunita@ayurdash.com', password_hash: hash('demo1234'), role: 'patient', display_name: 'Sunita Menon', phone: '+91-9811223344' },
   ]).returning('*');
 
   const [doctorUser] = await knex('users').insert([
@@ -47,32 +63,14 @@ exports.up = async function (knex) {
   await knex('patients').insert([
     {
       user_id: patientUser1.id,
-      age: 34,
-      gender: 'Male',
-      dob: '1990-03-15',
-      prakriti: 'Vata-Pitta',
-      blood_group: 'B+',
-      priority: 'high',
-      allergies: JSON.stringify(['Milk at night', 'Heavy oils post-sunset']),
-      mental_health: 'Mild anxiety reported during exam seasons. Recommended Shankhapushpi.',
-      dosha_vata: 42,
-      dosha_pitta: 35,
-      dosha_kapha: 23,
-      privacy_allergies: true,
-      privacy_treatments: true,
-      privacy_mental_health: false,
-      privacy_lab_reports: true,
-    },
-    {
-      user_id: patientUser2.id,
       age: 28,
       gender: 'Female',
       dob: '1996-07-22',
       prakriti: 'Kapha-Vata',
       blood_group: 'O+',
       priority: 'critical',
-      allergies: JSON.stringify(['Sesame (external heat rash)']),
-      mental_health: 'Post-Virechana monitoring. Severe dehydration risk.',
+      allergies: JSON.stringify(['Sesame (external heat rash)', 'Late-night heavy dairy']),
+      mental_health: 'Post-Virechana recovery. Severe dehydration risk & electrolyte surveillance.',
       dosha_vata: 30,
       dosha_pitta: 25,
       dosha_kapha: 45,
@@ -82,25 +80,97 @@ exports.up = async function (knex) {
       privacy_lab_reports: true,
     },
     {
-      user_id: patientUser3.id,
-      age: 42,
-      gender: 'Female',
-      dob: '1982-11-04',
-      prakriti: 'Pitta-Kapha',
-      blood_group: 'A+',
-      priority: 'medium',
-      allergies: JSON.stringify(['Sour citrus']),
-      mental_health: 'Stable. Active shamana therapy for knee joint stiffness.',
+      user_id: patientUser2.id,
+      age: 45,
+      gender: 'Male',
+      dob: '1979-04-12',
+      prakriti: 'Pitta-Vata',
+      blood_group: 'B+',
+      priority: 'critical',
+      allergies: JSON.stringify(['Mustard oil', 'Fermented pickles']),
+      mental_health: 'Acute Raktapitta exacerbation. Burning sensation, epistaxis. Requires Chandana & Pitta pacification.',
       dosha_vata: 25,
-      dosha_pitta: 45,
-      dosha_kapha: 30,
+      dosha_pitta: 60,
+      dosha_kapha: 15,
       privacy_allergies: true,
       privacy_treatments: true,
       privacy_mental_health: true,
       privacy_lab_reports: true,
     },
     {
+      user_id: patientUser3.id,
+      age: 34,
+      gender: 'Male',
+      dob: '1990-03-15',
+      prakriti: 'Vata-Pitta',
+      blood_group: 'B+',
+      priority: 'high',
+      allergies: JSON.stringify(['Milk at night', 'Heavy oils post-sunset']),
+      mental_health: 'Severe insomnia (3 hrs sleep/night) & tremors. Elevated Vata dosha requiring Ashwagandha & Shirodhara.',
+      dosha_vata: 55,
+      dosha_pitta: 30,
+      dosha_kapha: 15,
+      privacy_allergies: true,
+      privacy_treatments: true,
+      privacy_mental_health: false,
+      privacy_lab_reports: true,
+    },
+    {
       user_id: patientUser4.id,
+      age: 31,
+      gender: 'Female',
+      dob: '1993-09-08',
+      prakriti: 'Kapha-Pitta',
+      blood_group: 'A-',
+      priority: 'high',
+      allergies: JSON.stringify(['Cold liquids', 'Dust mites']),
+      mental_health: 'Bronchial congestion & mild Shwasa post-emesis. Sitopaladi & Kantakari advised.',
+      dosha_vata: 20,
+      dosha_pitta: 35,
+      dosha_kapha: 45,
+      privacy_allergies: true,
+      privacy_treatments: true,
+      privacy_mental_health: true,
+      privacy_lab_reports: true,
+    },
+    {
+      user_id: patientUser5.id,
+      age: 42,
+      gender: 'Female',
+      dob: '1982-11-04',
+      prakriti: 'Pitta-Kapha',
+      blood_group: 'A+',
+      priority: 'medium',
+      allergies: JSON.stringify(['Sour citrus', 'Eggplant']),
+      mental_health: 'Active Shamana therapy for bilateral knee osteoarthritis (Sandhigata Vata). Responding well to Janu Basti.',
+      dosha_vata: 40,
+      dosha_pitta: 35,
+      dosha_kapha: 25,
+      privacy_allergies: true,
+      privacy_treatments: true,
+      privacy_mental_health: true,
+      privacy_lab_reports: true,
+    },
+    {
+      user_id: patientUser6.id,
+      age: 39,
+      gender: 'Male',
+      dob: '1985-06-25',
+      prakriti: 'Vata-Pitta',
+      blood_group: 'O-',
+      priority: 'medium',
+      allergies: JSON.stringify(['Gluten sensitivity']),
+      mental_health: 'Grahani dosha (IBS pattern). Irregular Agni with post-prandial cramping. Takrarishta regimen ongoing.',
+      dosha_vata: 45,
+      dosha_pitta: 40,
+      dosha_kapha: 15,
+      privacy_allergies: true,
+      privacy_treatments: true,
+      privacy_mental_health: true,
+      privacy_lab_reports: true,
+    },
+    {
+      user_id: patientUser7.id,
       age: 50,
       gender: 'Male',
       dob: '1974-05-19',
@@ -108,10 +178,28 @@ exports.up = async function (knex) {
       blood_group: 'AB+',
       priority: 'low',
       allergies: JSON.stringify([]),
-      mental_health: 'Good vitality. Preventive Rasayana regimen.',
+      mental_health: 'Optimal health and high Ojas. Preventive Rasayana regimen with daily Chyawanprash.',
       dosha_vata: 33,
       dosha_pitta: 34,
       dosha_kapha: 33,
+      privacy_allergies: true,
+      privacy_treatments: true,
+      privacy_mental_health: true,
+      privacy_lab_reports: true,
+    },
+    {
+      user_id: patientUser8.id,
+      age: 56,
+      gender: 'Female',
+      dob: '1968-12-30',
+      prakriti: 'Kapha-Vata',
+      blood_group: 'O+',
+      priority: 'low',
+      allergies: JSON.stringify(['Peanuts']),
+      mental_health: 'Routine annual rejuvenation checkup. Vitals optimal, metabolic markers stable.',
+      dosha_vata: 28,
+      dosha_pitta: 32,
+      dosha_kapha: 40,
       privacy_allergies: true,
       privacy_treatments: true,
       privacy_mental_health: true,
